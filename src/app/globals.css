@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --vinayaka: url('https://upload.wikimedia.org/wikipedia/commons/9/99/Ganesha_Basohli_miniature_circa_1730_DSC09473.jpg');
+  --bg: #0e0f11;
+  --card: rgba(20,22,26,.55);
+  --border: #1f232a;
+  --accent: #ff9100;
+  --accent2: #ffc107;
+  --neon: #ffb300;
+}
+
+html, body { height: 100%; }
+body {
+  @apply font-sans text-slate-100;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(67,160,71,.12) 0%, transparent 60%),
+    radial-gradient(900px 500px at 120% 10%, rgba(3,169,244,.10) 0%, transparent 60%),
+    radial-gradient(800px 500px at -10% 80%, rgba(255,183,77,.10) 0%, transparent 60%),
+    var(--bg);
+}
+body::before {
+  content: "";
+  position: fixed; inset: 0; z-index: -2;
+  background: var(--vinayaka) center/cover no-repeat;
+  filter: blur(2px) saturate(1.05) brightness(.9);
+  opacity: .12;
+}
+
+/* helpers */
+.card {
+  @apply border rounded-2xl shadow-xl backdrop-blur-md;
+  background: var(--card);
+  border-color: var(--border);
+}
+.btn {
+  @apply rounded-full font-semibold transition-[box-shadow,transform] duration-200;
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary {
+  @apply text-neutral-900 bg-gradient-to-b from-amber-200 to-[var(--neon)] shadow-neon hover:shadow-neonHover;
+}
+.btn-ghost { @apply bg-white/5 border border-[var(--border)] text-slate-100; }
+
+/* table */
+.tbl th { @apply text-left text-sm text-slate-400 px-2; }
+.tbl td { @apply bg-white/5 border border-[var(--border)] rounded-xl px-3 py-3 align-middle; }
+
+/* sticky total */
+.stickyTotal { @apply fixed bottom-0 inset-x-0 z-50 flex justify-center backdrop-blur-md; background: var(--card); border-top: 1px solid var(--border); }
+.grand { @apply font-black text-transparent bg-clip-text; background-image: linear-gradient(90deg, var(--accent), var(--accent2)); }
+
+/* particles */
+.particles { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.p { position: absolute; bottom: -40px; animation: floatUp linear infinite; transform: translateY(0); }
+@keyframes floatUp { 0%{ transform: translateY(0) translateX(0) rotate(0deg) } 100%{ transform: translateY(-120vh) translateX(10vw) rotate(12deg) } }
+@media (prefers-reduced-motion: reduce){ .particles{ display:none } }
