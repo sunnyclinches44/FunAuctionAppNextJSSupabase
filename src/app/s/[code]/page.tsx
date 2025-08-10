@@ -15,8 +15,8 @@ type Participant = {
 
 const AMOUNTS = [5, 10, 15, 20, 50]
 
-/** Simple inline sign-in card using Supabase magic link */
-function SignInCard() {
+/** Magic-link sign-in card (shown on demand) */
+function SignInCard({ onClose }: { onClose?: () => void }) {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -35,8 +35,13 @@ function SignInCard() {
   }
 
   return (
-    <div className="card p-5 max-w-md mx-auto mt-10">
-      <h2 className="text-xl font-bold mb-2">Sign in to join this session</h2>
+    <div className="card p-5 max-w-md mx-auto mt-6">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-xl font-bold">Sign in to bid</h2>
+        {onClose && (
+          <button className="btn btn-ghost px-2 py-1 text-sm" onClick={onClose}>Close</button>
+        )}
+      </div>
       {sent ? (
         <div className="text-amber-300">Magic link sent. Check your inbox.</div>
       ) : (
@@ -60,47 +65,43 @@ function SignInCard() {
 
 export default function SessionRoom() {
   const { code } = useParams<{ code: string }>()
-  const [authReady, setAuthReady] = useState(false)
-  const [authed, setAuthed] = useState(false)
-
   const [session, setSession] = useState<Session | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
   const [me, setMe] = useState<Participant | null>(null)
+  const [authed, setAuthed] = useState(false)
   const [name, setName] = useState('')
   const [custom, setCustom] = useState<Record<string, string>>({})
   const [rtReady, setRtReady] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [showSignin, setShowSignin] = useState(false)
 
   const total = useMemo(
     () => participants.reduce((a, p) => a + Number(p.amount || 0), 0),
     [participants]
   )
 
-  // 0) Wait for auth state
+  // Auth state (optional for viewing; required for bidding)
   useEffect(() => {
-    let alive = true
+    let live = true
     supabase.auth.getSession().then(({ data }) => {
-      if (!alive) return
+      if (!live) return
       setAuthed(!!data.session)
-      setAuthReady(true)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => {
       setAuthed(!!sess)
     })
     return () => {
-      alive = false
+      live = false
       sub.subscription.unsubscribe()
     }
   }, [])
 
-  // 1) Load session + current participants (after auth is ready)
+  // Load session + members (publicly readable)
   useEffect(() => {
-    if (!authReady || !authed) return
-    let alive = true
+    let live = true
     ;(async () => {
       setErrorMsg(null)
 
-      // fetch session by code (RLS requires authenticated user)
       const { data: s, error: se } = await supabase
         .from('sessions')
         .select('*')
@@ -112,11 +113,9 @@ export default function SessionRoom() {
         setErrorMsg(se?.message || 'Session not found or not accessible.')
         return
       }
-      if (!alive) return
-
+      if (!live) return
       setSession(s as any)
 
-      // fetch participants
       const { data: parts, error: pe } = await supabase
         .from('participants')
         .select('*')
@@ -127,31 +126,28 @@ export default function SessionRoom() {
         setErrorMsg(pe.message)
         return
       }
-      if (!alive) return
-
+      if (!live) return
       setParticipants((parts as any) || [])
 
+      // If signed-in, detect my row
       const { data: { user } } = await supabase.auth.getUser()
       const mine =
         ((parts as any) || []).find((p: Participant) => p.user_id === user?.id) || null
       setMe(mine)
     })()
-    return () => {
-      alive = false
-    }
-  }, [authReady, authed, code])
+    return () => { live = false }
+  }, [code, authed]) // re-check "me" if auth flips
 
-  // 2) Realtime: subscribe when we have the session UUID
+  // Realtime: works for anon and authed
   useEffect(() => {
-    if (!session?.id || !authed) return
-
+    if (!session?.id) return
     const channel = supabase
       .channel(`participants:${session.id}`, { config: { broadcast: { ack: true } } })
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
         (payload) => {
-          console.log('[RT] INSERT', payload)
+          // console.log('[RT] INSERT', payload)
           setParticipants((prev) => [...prev, payload.new as any])
         }
       )
@@ -159,7 +155,7 @@ export default function SessionRoom() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
         (payload) => {
-          console.log('[RT] UPDATE', payload)
+          // console.log('[RT] UPDATE', payload)
           setParticipants((prev) => {
             const next = [...prev]
             const i = next.findIndex((p) => p.id === (payload.new as any).id)
@@ -172,12 +168,11 @@ export default function SessionRoom() {
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
         (payload) => {
-          console.log('[RT] DELETE', payload)
+          // console.log('[RT] DELETE', payload)
           setParticipants((prev) => prev.filter((p) => p.id !== (payload.old as any).id))
         }
       )
       .subscribe((status) => {
-        console.log('[RT] status:', status)
         if (status === 'SUBSCRIBED') setRtReady(true)
       })
 
@@ -185,27 +180,28 @@ export default function SessionRoom() {
       setRtReady(false)
       supabase.removeChannel(channel)
     }
-  }, [session?.id, authed])
+  }, [session?.id])
 
   // Actions
   async function join() {
     if (!session) return
+    if (!authed) { setShowSignin(true); return }
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return alert('Please sign in first')
+    if (!user) { setShowSignin(true); return }
 
     const { data, error } = await supabase
       .from('participants')
       .insert({ session_id: session.id, user_id: user.id, display_name: name })
-      .select('*')
-      .single()
+      .select('*').single()
 
     if (error) return alert(error.message)
     setMe(data as any)
     setParticipants((prev) => [...prev, data as any])
+    setShowSignin(false)
   }
 
   async function bid(delta: number) {
-    if (!session || !me) return
+    if (!session || !me) { setShowSignin(true); return }
     // optimistic
     setParticipants((prev) => {
       const next = [...prev]
@@ -215,9 +211,7 @@ export default function SessionRoom() {
     })
     const { error } = await supabase.rpc('place_bid', { p_session: session.id, p_delta: delta })
     if (error) {
-      console.error(error)
       alert(error.message)
-      // revert
       setParticipants((prev) => {
         const next = [...prev]
         const i = next.findIndex((p) => p.id === me.id)
@@ -228,7 +222,7 @@ export default function SessionRoom() {
   }
 
   async function bidCustom(pid: string) {
-    if (!session || !me) return
+    if (!session || !me) { setShowSignin(true); return }
     const v = Number(custom[pid])
     if (!Number.isFinite(v) || v < 5) return alert('Enter a valid number ≥ 5')
     // optimistic
@@ -240,9 +234,7 @@ export default function SessionRoom() {
     })
     const { error } = await supabase.rpc('place_bid', { p_session: session.id, p_delta: v })
     if (error) {
-      console.error(error)
       alert(error.message)
-      // revert
       setParticipants((prev) => {
         const next = [...prev]
         const i = next.findIndex((p) => p.id === me.id)
@@ -252,21 +244,7 @@ export default function SessionRoom() {
     }
   }
 
-  // --------- Render states ---------
-  if (!authReady) return <main className="max-w-2xl mx-auto p-6 text-slate-400">Loading…</main>
-
-  if (!authed) {
-    return (
-      <main className="relative z-10">
-        <header className="text-center pt-6">
-          <h1 className="text-3xl sm:text-4xl font-extrabold grand">🙏 Ganesh Chaturthi Laddu Auction</h1>
-          <div className="text-slate-400 mt-1">Sign in to join this session</div>
-        </header>
-        <SignInCard />
-      </main>
-    )
-  }
-
+  // -------- Render --------
   if (errorMsg) {
     return (
       <main className="max-w-2xl mx-auto p-6">
@@ -278,26 +256,6 @@ export default function SessionRoom() {
     )
   }
 
-  // Not joined yet → show join form
-  if (session && !me) {
-    return (
-      <main className="max-w-xl mx-auto p-4">
-        <div className="card p-4 space-y-3">
-          <h1 className="text-2xl font-bold">{session?.title || 'Session'}</h1>
-          <p className="text-slate-400 -mt-1">Join this session with a display name.</p>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Your name"
-            className="bg-white/5 border border-[var(--border)] rounded-xl px-3 py-2 w-full outline-none"
-          />
-          <button className="btn btn-primary px-4 py-2" onClick={join}>Join Session</button>
-        </div>
-      </main>
-    )
-  }
-
-  // Main live view
   return (
     <main className="relative z-10">
       <header className="text-center pt-6">
@@ -306,11 +264,36 @@ export default function SessionRoom() {
         <div className={`mt-2 text-xs ${rtReady ? 'text-green-400' : 'text-slate-500'}`}>
           Realtime: {rtReady ? 'connected' : 'connecting…'}
         </div>
+
+        {!me && (
+          <div className="mt-3">
+            <button className="btn btn-primary px-4 py-2" onClick={() => setShowSignin(true)}>
+              Sign in to bid / join
+            </button>
+          </div>
+        )}
       </header>
 
+      {/* Join form appears only if authed but not yet joined */}
+      {authed && !me && (
+        <section className="max-w-xl mx-auto p-4">
+          <div className="card p-4 space-y-3">
+            <div className="text-lg font-semibold">Join this session</div>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your display name"
+              className="bg-white/5 border border-[var(--border)] rounded-xl px-3 py-2 w-full outline-none"
+            />
+            <button className="btn btn-primary px-4 py-2" onClick={join}>Join Session</button>
+          </div>
+        </section>
+      )}
+
+      {/* Main list (always visible to spectators) */}
       <section className="max-w-2xl mx-auto p-4 pb-28 space-y-4">
         {participants.map((p) => {
-          const isSelf = p.user_id === me!.user_id
+          const isSelf = !!me && p.user_id === me.user_id
           return (
             <div key={p.id} className="card p-4">
               <div className="flex items-center justify-between">
@@ -371,6 +354,8 @@ export default function SessionRoom() {
           <div className="grand text-2xl">${total}</div>
         </div>
       </div>
+
+      {showSignin && !authed && <SignInCard onClose={() => setShowSignin(false)} />}
     </main>
   )
 }
