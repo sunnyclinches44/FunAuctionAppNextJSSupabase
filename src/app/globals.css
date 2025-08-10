@@ -48,6 +48,9 @@ body::before {
 .tbl th { @apply text-left text-sm text-slate-400 px-2; }
 .tbl td { @apply bg-white/5 border border-[var(--border)] rounded-xl px-3 py-3 align-middle; }
 
+/* mobile tweaks */
+.chip { @apply bg-white/5 border border-[var(--border)] rounded-full px-3 py-1 flex items-center gap-2; }
+
 /* sticky total */
 .stickyTotal { @apply fixed bottom-0 inset-x-0 z-50 flex justify-center backdrop-blur-md; background: var(--card); border-top: 1px solid var(--border); }
 .grand { @apply font-black text-transparent bg-clip-text; background-image: linear-gradient(90deg, var(--accent), var(--accent2)); }
