@@ -6,7 +6,7 @@ import AuthProvider from '@/components/AuthProvider'
 const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['400','600','800'] })
 
 export const metadata: Metadata = {
-  title: 'Ganesh Chaturthi Laddu Auction',
+  title: 'Fun Auction',
   description: 'Fun • Devotional • Everyone contributes',
 }
 

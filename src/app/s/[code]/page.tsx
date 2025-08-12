@@ -36,6 +36,8 @@ export default function SessionRoom() {
   const [custom, setCustom] = useState<Record<string, string>>({})
   const [rtReady, setRtReady] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [showCustomInput, setShowCustomInput] = useState<string | null>(null)
+  const [customAmount, setCustomAmount] = useState('')
 
   const total = useMemo(
     () => participants.reduce((a, p) => a + Number(p.amount || 0), 0),
@@ -133,63 +135,111 @@ export default function SessionRoom() {
     if (!name) { alert('Please enter your display name.'); return }
     localStorage.setItem('laddu_display_name', name)
 
-    const { data, error } = await supabase.rpc('open_join_session', {
-      p_code: session.code,
-      p_device: myDeviceId,
-      p_name: name,
-    })
-    if (error) { alert(error.message); return }
+    try {
+      // Check if participant already exists for this device
+      const { data: existingParticipant, error: checkError } = await supabase
+        .from('participants')
+        .select('*')
+        .eq('session_id', session.id)
+        .eq('device_id', myDeviceId)
+        .maybeSingle()
 
-    // ensure my row is in the list immediately
-    setParticipants((prev) => {
-      const next = [...prev]
-      const i = next.findIndex((p) => p.device_id === myDeviceId)
-      if (i >= 0) next[i] = data as any
-      else next.push(data as any)
-      return next
-    })
+      if (checkError) throw checkError
+
+      if (existingParticipant) {
+        // Update existing participant
+        const { error: updateError } = await supabase
+          .from('participants')
+          .update({ display_name: name })
+          .eq('id', existingParticipant.id)
+
+        if (updateError) throw updateError
+      } else {
+        // Create new participant
+        const { error: insertError } = await supabase
+          .from('participants')
+          .insert({
+            session_id: session.id,
+            device_id: myDeviceId,
+            display_name: name,
+            amount: 0
+          })
+
+        if (insertError) throw insertError
+      }
+    } catch (error) {
+      console.error('Error saving name:', error)
+      alert('Failed to save name. Please try again.')
+    }
   }
 
   async function place(delta: number) {
-    if (!session) return
+    if (!session || !myRow) return
     const name = (myName || '').trim()
     if (!name) { alert('Please enter your display name first.'); return }
 
-    // optimistic update if I already have a row
-    if (myRow) {
+    // optimistic update
+    setParticipants((prev) => {
+      const next = [...prev]
+      const i = next.findIndex((p) => p.id === myRow.id)
+      if (i >= 0) next[i] = { ...next[i], amount: Number(next[i].amount || 0) + delta }
+      return next
+    })
+
+    try {
+      // Update participant amount directly
+      const { error: updateError } = await supabase
+        .from('participants')
+        .update({ amount: Number(myRow.amount || 0) + delta })
+        .eq('id', myRow.id)
+
+      if (updateError) throw updateError
+
+      // Insert bid record
+      const { error: bidError } = await supabase
+        .from('bids')
+        .insert({
+          session_id: session.id,
+          participant_id: myRow.id,
+          delta: delta
+        })
+
+      if (bidError) throw bidError
+
+    } catch (error) {
+      console.error('Error placing bid:', error)
+      alert(error instanceof Error ? error.message : 'Failed to place bid')
+      
+      // revert optimistic change
       setParticipants((prev) => {
         const next = [...prev]
         const i = next.findIndex((p) => p.id === myRow.id)
-        if (i >= 0) next[i] = { ...next[i], amount: Number(next[i].amount || 0) + delta }
+        if (i >= 0) next[i] = { ...next[i], amount: Number(next[i].amount || 0) - delta }
         return next
       })
     }
-
-    const { error } = await supabase.rpc('open_place_bid', {
-      p_code: session.code,
-      p_device: myDeviceId,
-      p_name: name,
-      p_delta: delta,
-    })
-
-    if (error) {
-      alert(error.message)
-      // revert optimistic change if needed
-      if (myRow) {
-        setParticipants((prev) => {
-          const next = [...prev]
-          const i = next.findIndex((p) => p.id === myRow.id)
-          if (i >= 0) next[i] = { ...next[i], amount: Number(next[i].amount || 0) - delta }
-          return next
-        })
-      }
-    }
   }
 
-  async function placeCustom(pid: string) {
-    const v = Number(custom[pid])
-    if (!Number.isFinite(v) || v < 5) { alert('Enter a valid number ≥ 5'); return }
-    await place(v)
+  async function handleCustomAmount(pid: string) {
+    if (!customAmount || customAmount.trim() === '') {
+      alert('Please enter a custom amount')
+      return
+    }
+    
+    const amount = Number(customAmount)
+    if (!Number.isFinite(amount) || amount < 5) { 
+      alert('Enter a valid number ≥ 5'); 
+      return 
+    }
+    
+    try {
+      await place(amount)
+      // Close the modal and clear input
+      setShowCustomInput(null)
+      setCustomAmount('')
+    } catch (error) {
+      console.error('Error placing custom bid:', error)
+    }
   }
 
   // ----- render -----
@@ -207,7 +257,7 @@ export default function SessionRoom() {
   return (
     <main className="relative z-10">
       <header className="text-center pt-6">
-        <h1 className="text-3xl sm:text-4xl font-extrabold grand">🙏 Ganesh Chaturthi Laddu Auction</h1>
+        <h1 className="text-3xl sm:text-4xl font-extrabold grand">🙏 Fun Auction</h1>
         <div className="text-slate-400 mt-1">{session?.title || 'Live Session'}</div>
         <div className={`mt-2 text-xs ${rtReady ? 'text-green-400' : 'text-slate-500'}`}>
           Realtime: {rtReady ? 'connected' : 'connecting…'}
@@ -254,32 +304,72 @@ export default function SessionRoom() {
                     +${a}
                   </button>
                 ))}
-              </div>
-
-              <div className="mt-3 flex items-center gap-2">
-                <input
-                  disabled={!isSelf}
-                  value={custom[p.id] ?? ''}
-                  onChange={(e) => setCustom((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="Custom amount (≥ $5)"
-                  className={`min-w-[180px] flex-1 bg-white/5 border border-[var(--border)] rounded-xl px-3 py-2 outline-none ${
-                    !isSelf ? 'opacity-60' : ''
-                  }`}
-                />
+                
+                {/* Custom Amount Button */}
                 <button
                   disabled={!isSelf}
-                  className={`btn px-4 py-2 rounded-lg ${
+                  className={`btn px-3 py-2 rounded-lg ${
                     isSelf
                       ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
                       : 'bg-white/10 text-slate-400 cursor-not-allowed'
                   }`}
-                  onClick={() => placeCustom(p.id)}
+                  onClick={() => {
+                    if (isSelf) {
+                      setShowCustomInput(p.id)
+                      setCustomAmount('')
+                    }
+                  }}
                 >
-                  + Custom
+                  Custom
                 </button>
               </div>
+
+              {/* Custom Amount Modal */}
+              {showCustomInput === p.id && (
+                <div className="mt-4 p-4 bg-slate-800/50 border border-slate-600 rounded-xl backdrop-blur-sm">
+                  <div className="text-sm text-slate-300 mb-3">Enter custom amount (≥ $5)</div>
+                  <div className="flex gap-3">
+                    <input
+                      type="number"
+                      min="5"
+                      step="1"
+                      value={customAmount}
+                      onChange={(e) => setCustomAmount(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleCustomAmount(p.id)
+                        } else if (e.key === 'Escape') {
+                          setShowCustomInput(null)
+                          setCustomAmount('')
+                        }
+                      }}
+                      placeholder="Enter amount..."
+                      className="flex-1 bg-white/10 border border-slate-500 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => handleCustomAmount(p.id)}
+                      disabled={!customAmount || Number(customAmount) < 5}
+                      className={`btn px-3 py-2 rounded-lg ${
+                        isSelf && customAmount && Number(customAmount) >= 5
+                          ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
+                          : 'bg-white/10 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                      Add
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCustomInput(null)
+                        setCustomAmount('')
+                      }}
+                      className="btn bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )
         })}
