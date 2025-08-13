@@ -1,12 +1,12 @@
--- Enable uuid generator if needed
-create extension if not exists pgcrypto;
+-- ============ COMPLETE SCHEMA WITH RPC FUNCTIONS ============
+-- Run this entire script in Supabase SQL Editor
 
--- ============ Tables ============
+-- ============ TABLES ============
 create table if not exists public.sessions (
   id uuid primary key default gen_random_uuid(),
-  code text unique not null,
+  code text not null unique,
   title text,
-  created_by uuid references auth.users(id) on delete set null,
+  created_by uuid references auth.users(id) on delete cascade,
   created_at timestamptz default now(),
   is_active boolean default true
 );
@@ -24,14 +24,18 @@ create table if not exists public.participants (
 );
 
 create table if not exists public.bids (
-  id bigserial primary key,
+  id uuid primary key default gen_random_uuid(),
   session_id uuid not null references public.sessions(id) on delete cascade,
   participant_id uuid not null references public.participants(id) on delete cascade,
-  delta numeric not null check (delta >= 5),
+  delta numeric not null,
   created_at timestamptz default now()
 );
 
+-- ============ INDEXES ============
+create index if not exists idx_sessions_code on public.sessions(code);
+create index if not exists idx_sessions_active on public.sessions(is_active);
 create index if not exists idx_participants_session on public.participants(session_id);
+create index if not exists idx_participants_device on public.participants(device_id);
 create index if not exists idx_bids_session on public.bids(session_id);
 
 -- ============ RLS POLICIES ============
@@ -277,7 +281,7 @@ BEGIN
     RAISE EXCEPTION 'Session not found or inactive';
   END IF;
   
-  -- Get participants
+  -- Get participants with proper aggregation
   SELECT json_agg(
     json_build_object(
       'id', p.id,
@@ -285,11 +289,10 @@ BEGIN
       'amount', p.amount,
       'device_id', p.device_id,
       'created_at', p.created_at
-    )
+    ) ORDER BY p.created_at
   ) INTO v_participants
   FROM participants p
-  WHERE p.session_id = v_session.id
-  ORDER BY p.created_at;
+  WHERE p.session_id = v_session.id;
   
   -- Calculate total amount
   SELECT COALESCE(SUM(amount), 0) INTO v_total_amount
@@ -305,13 +308,12 @@ BEGIN
     ),
     'participants', COALESCE(v_participants, '[]'::json),
     'total_amount', v_total_amount,
-    'participant_count', json_array_length(COALESCE(v_participants, '[]'::json))
+    'participant_count', CASE WHEN v_participants IS NULL THEN 0 ELSE json_array_length(v_participants) END
   );
 END;
 $$;
 
--- Optional convenience view
-create or replace view public.session_totals as
-  select session_id, sum(amount)::numeric as total
-  from public.participants
-  group by session_id;
+-- Grant execute permissions on RPC functions
+GRANT EXECUTE ON FUNCTION join_session(text, text, text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION place_bid(text, text, numeric) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION get_session_details(text) TO anon, authenticated;

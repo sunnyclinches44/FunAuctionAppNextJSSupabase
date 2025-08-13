@@ -165,7 +165,7 @@ export default function AdminPage() {
   async function loadSessions() {
     setLoading(true)
     try {
-      // Get all active sessions with participant counts and total amounts
+      // Get all active sessions
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('sessions')
         .select('id, code, title, created_at, is_active')
@@ -174,26 +174,31 @@ export default function AdminPage() {
 
       if (sessionsError) throw sessionsError
 
-      // Get participant counts and total amounts for each session
-      const sessionsWithDetails = await Promise.all(
-        sessionsData.map(async (session) => {
-          const { data: participants, error: participantsError } = await supabase
-            .from('participants')
-            .select('amount')
-            .eq('session_id', session.id)
+      if (!sessionsData || sessionsData.length === 0) {
+        setSessions([])
+        return
+      }
 
-          if (participantsError) throw participantsError
+      // Get all participants for all sessions in a single query
+      const { data: participantsData, error: participantsError } = await supabase
+        .from('participants')
+        .select('session_id, amount')
+        .in('session_id', sessionsData.map(s => s.id))
 
-          const participant_count = participants.length
-          const total_amount = participants.reduce((sum, p) => sum + Number(p.amount), 0)
+      if (participantsError) throw participantsError
 
-          return {
-            ...session,
-            participant_count,
-            total_amount
-          }
-        })
-      )
+      // Process data in memory instead of multiple DB calls
+      const sessionsWithDetails = sessionsData.map(session => {
+        const sessionParticipants = participantsData?.filter(p => p.session_id === session.id) || []
+        const participant_count = sessionParticipants.length
+        const total_amount = sessionParticipants.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+
+        return {
+          ...session,
+          participant_count,
+          total_amount
+        }
+      })
 
       setSessions(sessionsWithDetails)
     } catch (error) {
