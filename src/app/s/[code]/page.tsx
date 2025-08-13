@@ -359,15 +359,21 @@ export default function SessionRoom() {
               onChange={(e) => setMyName(e.target.value)}
               placeholder="e.g., Sandeep"
               className="flex-1 bg-white/5 border border-[var(--border)] rounded-xl px-3 py-2 outline-none"
+              disabled={!!myRow} // Disable if user has already joined
             />
             <button 
               className="btn btn-ghost px-3 py-2" 
               onClick={saveName}
-              disabled={isSavingName}
+              disabled={isSavingName || !!myRow} // Disable if already joined
             >
-              {isSavingName ? 'Saving...' : 'Save'}
+              {isSavingName ? 'Saving...' : myRow ? 'Joined ✓' : 'Save'}
             </button>
           </div>
+          {myRow && (
+            <div className="mt-2 text-sm text-green-400">
+              ✓ Successfully joined as "{myRow.display_name}"
+            </div>
+          )}
         </div>
 
         {isLoading ? (
@@ -385,43 +391,44 @@ export default function SessionRoom() {
                 </div>
                 <div className="mt-1 text-2xl font-extrabold">${Number(p.amount || 0)}</div>
 
-                <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-start">
-                  {AUCTION_CONFIG.PRESET_AMOUNTS.map((a) => (
+                {/* Only show bid buttons for current user */}
+                {isSelf ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-start">
+                    {AUCTION_CONFIG.PRESET_AMOUNTS.map((a) => (
+                      <button
+                        key={a}
+                        disabled={isPlacingBid === p.id}
+                        className={`btn px-3 py-2 rounded-lg ${
+                          isPlacingBid !== p.id
+                            ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
+                            : 'bg-white/10 text-slate-400 cursor-not-allowed'
+                        }`}
+                        onClick={() => place(a)}
+                      >
+                        {isPlacingBid === p.id ? '...' : `+$${a}`}
+                      </button>
+                    ))}
+                    
+                    {/* Custom Amount Button */}
                     <button
-                      key={a}
-                      disabled={!isSelf || isPlacingBid === p.id}
+                      disabled={isPlacingBid === p.id}
                       className={`btn px-3 py-2 rounded-lg ${
-                        isSelf && isPlacingBid !== p.id
+                        isPlacingBid !== p.id
                           ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
                           : 'bg-white/10 text-slate-400 cursor-not-allowed'
                       }`}
-                      onClick={() => place(a)}
-                    >
-                      {isPlacingBid === p.id ? '...' : `+$${a}`}
-                    </button>
-                  ))}
-                  
-                  {/* Custom Amount Button */}
-                  <button
-                    disabled={!isSelf || isPlacingBid === p.id}
-                    className={`btn px-3 py-2 rounded-lg ${
-                      isSelf && isPlacingBid !== p.id
-                        ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
-                        : 'bg-white/10 text-slate-400 cursor-not-allowed'
-                    }`}
-                    onClick={() => {
-                      if (isSelf) {
+                      onClick={() => {
                         setShowCustomInput(p.id)
                         setCustomAmount('')
-                      }
-                    }}
-                  >
-                    Custom
-                  </button>
-                </div>
+                      }}
+                    >
+                      Custom
+                    </button>
+                  </div>
+                ) : null}
 
-                {/* Custom Amount Modal */}
-                {showCustomInput === p.id && (
+                {/* Custom Amount Modal - only show for current user */}
+                {isSelf && showCustomInput === p.id && (
                   <div className="mt-4 p-4 bg-slate-800/50 border border-slate-600 rounded-xl backdrop-blur-sm">
                     <div className="text-sm text-slate-300 mb-3">Enter custom amount (≥ $5)</div>
                     <div className="flex gap-3">
@@ -447,7 +454,7 @@ export default function SessionRoom() {
                         onClick={() => handleCustomAmount(p.id)}
                         disabled={!customAmount || Number(customAmount) < AUCTION_CONFIG.MIN_BID_AMOUNT}
                         className={`btn px-3 py-2 rounded-lg ${
-                          isSelf && customAmount && Number(customAmount) >= AUCTION_CONFIG.MIN_BID_AMOUNT
+                          customAmount && Number(customAmount) >= AUCTION_CONFIG.MIN_BID_AMOUNT
                             ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
                             : 'bg-white/10 text-slate-400 cursor-not-allowed'
                         }`}

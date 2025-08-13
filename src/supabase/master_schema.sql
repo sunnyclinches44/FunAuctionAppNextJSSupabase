@@ -1,51 +1,66 @@
--- ============ COMPLETE SCHEMA WITH RPC FUNCTIONS ============
--- Run this entire script in Supabase SQL Editor
+-- ============ MASTER SCHEMA - COMPLETE DATABASE SETUP ============
+-- Run this ENTIRE file in Supabase SQL Editor to set up everything
+-- This file contains: Tables, Indexes, RLS Policies, and RPC Functions
 
--- ============ TABLES ============
-create table if not exists public.sessions (
-  id uuid primary key default gen_random_uuid(),
-  code text not null unique,
+-- ============ STEP 1: CREATE TABLES ============
+
+-- Sessions table
+CREATE TABLE IF NOT EXISTS public.sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code text NOT NULL UNIQUE,
   title text,
-  created_by uuid references auth.users(id) on delete cascade,
-  created_at timestamptz default now(),
-  is_active boolean default true
+  created_by uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz DEFAULT now(),
+  is_active boolean DEFAULT true
 );
 
-create table if not exists public.participants (
-  id uuid primary key default gen_random_uuid(),
-  session_id uuid not null references public.sessions(id) on delete cascade,
-  user_id uuid references auth.users(id) on delete cascade,
+-- Participants table
+CREATE TABLE IF NOT EXISTS public.participants (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL REFERENCES public.sessions(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   device_id text,
-  display_name text not null,
-  amount numeric not null default 0,
-  created_at timestamptz default now(),
-  unique (session_id, user_id),
-  unique (session_id, device_id)
+  display_name text NOT NULL,
+  amount numeric NOT NULL DEFAULT 0,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (session_id, user_id),
+  UNIQUE (session_id, device_id)
 );
 
-create table if not exists public.bids (
-  id uuid primary key default gen_random_uuid(),
-  session_id uuid not null references public.sessions(id) on delete cascade,
-  participant_id uuid not null references public.participants(id) on delete cascade,
-  delta numeric not null,
-  created_at timestamptz default now()
+-- Bids table
+CREATE TABLE IF NOT EXISTS public.bids (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL REFERENCES public.sessions(id) ON DELETE CASCADE,
+  participant_id uuid NOT NULL REFERENCES public.participants(id) ON DELETE CASCADE,
+  delta numeric NOT NULL,
+  created_at timestamptz DEFAULT now()
 );
 
--- ============ INDEXES ============
-create index if not exists idx_sessions_code on public.sessions(code);
-create index if not exists idx_sessions_active on public.sessions(is_active);
-create index if not exists idx_participants_session on public.participants(session_id);
-create index if not exists idx_participants_device on public.participants(device_id);
-create index if not exists idx_bids_session on public.bids(session_id);
+-- ============ STEP 2: CREATE INDEXES ============
 
--- ============ RLS POLICIES ============
+-- Sessions indexes
+CREATE INDEX IF NOT EXISTS idx_sessions_code ON public.sessions(code);
+CREATE INDEX IF NOT EXISTS idx_sessions_active ON public.sessions(is_active);
+CREATE INDEX IF NOT EXISTS idx_sessions_created_by ON public.sessions(created_by);
 
--- Enable RLS on all tables
+-- Participants indexes
+CREATE INDEX IF NOT EXISTS idx_participants_session ON public.participants(session_id);
+CREATE INDEX IF NOT EXISTS idx_participants_device ON public.participants(device_id);
+CREATE INDEX IF NOT EXISTS idx_participants_user ON public.participants(user_id);
+
+-- Bids indexes
+CREATE INDEX IF NOT EXISTS idx_bids_session ON public.bids(session_id);
+CREATE INDEX IF NOT EXISTS idx_bids_participant ON public.bids(participant_id);
+
+-- ============ STEP 3: ENABLE ROW LEVEL SECURITY ============
+
 ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bids ENABLE ROW LEVEL SECURITY;
 
--- Simple sessions policies
+-- ============ STEP 4: CREATE RLS POLICIES ============
+
+-- Sessions policies
 DROP POLICY IF EXISTS sessions_insert_creator ON public.sessions;
 CREATE POLICY sessions_insert_creator
 ON public.sessions
@@ -67,7 +82,7 @@ FOR DELETE
 TO authenticated
 USING (created_by = auth.uid() OR auth.uid() IS NOT NULL);
 
--- Simple participants policies - allow all operations for active sessions
+-- Participants policies - simple and effective
 DROP POLICY IF EXISTS participants_select_session_members ON public.participants;
 CREATE POLICY participants_select_session_members
 ON public.participants
@@ -104,7 +119,17 @@ USING (
   )
 );
 
--- Simple bids policies - allow all operations for active sessions
+DROP POLICY IF EXISTS participants_delete_admin ON public.participants;
+CREATE POLICY participants_delete_admin
+ON public.participants
+FOR DELETE
+TO authenticated
+USING (
+  -- Allow deletion if user is authenticated (admin)
+  auth.uid() IS NOT NULL
+);
+
+-- Bids policies - simple and effective
 DROP POLICY IF EXISTS bids_select_session_members ON public.bids;
 CREATE POLICY bids_select_session_members
 ON public.bids
@@ -129,7 +154,7 @@ WITH CHECK (
   )
 );
 
--- ============ RPC FUNCTIONS ============
+-- ============ STEP 5: CREATE RPC FUNCTIONS ============
 
 -- Function to join a session (create or update participant)
 CREATE OR REPLACE FUNCTION join_session(
@@ -313,7 +338,21 @@ BEGIN
 END;
 $$;
 
+-- ============ STEP 6: GRANT PERMISSIONS ============
+
 -- Grant execute permissions on RPC functions
 GRANT EXECUTE ON FUNCTION join_session(text, text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION place_bid(text, text, numeric) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_session_details(text) TO anon, authenticated;
+
+-- ============ STEP 7: VERIFICATION QUERIES ============
+
+-- Uncomment these lines to verify the setup (optional)
+-- SELECT 'Tables created successfully' as status;
+-- SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('sessions', 'participants', 'bids');
+-- SELECT function_name FROM information_schema.routines WHERE routine_schema = 'public' AND routine_type = 'FUNCTION';
+-- SELECT policy_name, table_name FROM pg_policies WHERE schemaname = 'public';
+
+-- ============ END OF MASTER SCHEMA ============
+-- Run this entire file in Supabase SQL Editor
+-- All tables, policies, and functions will be created/updated

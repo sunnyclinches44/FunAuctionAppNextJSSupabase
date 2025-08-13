@@ -13,6 +13,14 @@ interface Session {
   total_amount: number
 }
 
+interface Participant {
+  id: string
+  display_name: string
+  amount: number
+  device_id: string
+  created_at: string
+}
+
 function SignInCard({ onDone }: { onDone?: () => void }) {
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
@@ -60,8 +68,16 @@ function SignInCard({ onDone }: { onDone?: () => void }) {
   )
 }
 
-function SessionsList({ sessions, onDelete }: { sessions: Session[], onDelete: (sessionId: string) => void }) {
+function SessionsList({ sessions, onDelete, onDeleteParticipant, onLoadParticipants }: { 
+  sessions: Session[], 
+  onDelete: (sessionId: string) => void,
+  onDeleteParticipant: (participantId: string, sessionId: string) => void,
+  onLoadParticipants: (sessionId: string) => Promise<Participant[]>
+}) {
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
+  const [participants, setParticipants] = useState<Record<string, Participant[]>>({})
+  const [loadingParticipants, setLoadingParticipants] = useState<Set<string>>(new Set())
 
   const handleDelete = async (sessionId: string) => {
     if (!confirm('Are you sure you want to delete this session? This will permanently remove all session data, participants, and bids.')) {
@@ -76,6 +92,54 @@ function SessionsList({ sessions, onDelete }: { sessions: Session[], onDelete: (
     }
   }
 
+  const handleDeleteParticipant = async (participantId: string, sessionId: string, participantName: string) => {
+    if (!confirm(`Are you sure you want to delete participant "${participantName}"? This will remove all their bids and contributions.`)) {
+      return
+    }
+
+    try {
+      await onDeleteParticipant(participantId, sessionId)
+      // Remove participant from local state
+      setParticipants(prev => ({
+        ...prev,
+        [sessionId]: prev[sessionId]?.filter(p => p.id !== participantId) || []
+      }))
+      
+      // Also refresh the participants list to ensure consistency
+      const updatedParticipants = await onLoadParticipants(sessionId)
+      setParticipants(prev => ({ ...prev, [sessionId]: updatedParticipants }))
+      
+    } catch (error) {
+      console.error('Error deleting participant:', error)
+    }
+  }
+
+  const toggleSessionExpansion = async (sessionId: string) => {
+    const newExpanded = new Set(expandedSessions)
+    
+    if (newExpanded.has(sessionId)) {
+      newExpanded.delete(sessionId)
+    } else {
+      newExpanded.add(sessionId)
+      // Load participants if not already loaded
+      if (!participants[sessionId]) {
+        setLoadingParticipants(prev => new Set(prev).add(sessionId))
+        try {
+          const sessionParticipants = await onLoadParticipants(sessionId)
+          setParticipants(prev => ({ ...prev, [sessionId]: sessionParticipants }))
+        } finally {
+          setLoadingParticipants(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(sessionId)
+            return newSet
+          })
+        }
+      }
+    }
+    
+    setExpandedSessions(newExpanded)
+  }
+
   if (sessions.length === 0) {
     return (
       <div className="text-center text-slate-400 py-8">
@@ -88,40 +152,84 @@ function SessionsList({ sessions, onDelete }: { sessions: Session[], onDelete: (
     <div className="w-full max-w-4xl">
       <h3 className="text-xl font-semibold mb-4">Active Sessions</h3>
       <div className="grid gap-4">
-        {sessions.map((session) => (
-          <div key={session.id} className="card p-4 border border-[var(--border)]">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h4 className="text-lg font-medium">{session.title || 'Untitled Session'}</h4>
-                  <span className="text-sm bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
-                    {session.code}
-                  </span>
+        {sessions.map((session) => {
+          const isExpanded = expandedSessions.has(session.id)
+          const sessionParticipants = participants[session.id] || []
+          const isLoadingParticipants = loadingParticipants.has(session.id)
+          
+          return (
+            <div key={session.id} className="card p-4 border border-[var(--border)]">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h4 className="text-lg font-medium">{session.title || 'Untitled Session'}</h4>
+                    <span className="text-sm bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
+                      {session.code}
+                    </span>
+                  </div>
+                  <div className="text-sm text-slate-400 space-y-1">
+                    <div>Created: {new Date(session.created_at).toLocaleDateString()}</div>
+                    <div>Participants: {session.participant_count}</div>
+                    <div>Total Amount: ₹{session.total_amount}</div>
+                  </div>
                 </div>
-                <div className="text-sm text-slate-400 space-y-1">
-                  <div>Created: {new Date(session.created_at).toLocaleDateString()}</div>
-                  <div>Participants: {session.participant_count}</div>
-                  <div>Total Amount: ₹{session.total_amount}</div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => toggleSessionExpansion(session.id)}
+                    className="btn btn-ghost btn-sm"
+                  >
+                    {isExpanded ? 'Hide Details' : 'View Details'}
+                  </button>
+                  <button
+                    onClick={() => window.open(`/s/${session.code}`, '_blank')}
+                    className="btn btn-ghost btn-sm"
+                  >
+                    View
+                  </button>
+                  <button
+                    onClick={() => handleDelete(session.id)}
+                    disabled={deleting === session.id}
+                    className="btn btn-error btn-sm"
+                  >
+                    {deleting === session.id ? 'Deleting...' : 'Delete'}
+                  </button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => window.open(`/s/${session.code}`, '_blank')}
-                  className="btn btn-ghost btn-sm"
-                >
-                  View
-                </button>
-                <button
-                  onClick={() => handleDelete(session.id)}
-                  disabled={deleting === session.id}
-                  className="btn btn-error btn-sm"
-                >
-                  {deleting === session.id ? 'Deleting...' : 'Delete'}
-                </button>
-              </div>
+
+              {/* Expanded participant details */}
+              {isExpanded && (
+                <div className="mt-4 pt-4 border-t border-[var(--border)]">
+                  <h5 className="text-md font-semibold mb-3 text-slate-300">Participants</h5>
+                  
+                  {isLoadingParticipants ? (
+                    <div className="text-center py-4 text-slate-400">Loading participants...</div>
+                  ) : sessionParticipants.length === 0 ? (
+                    <div className="text-center py-4 text-slate-400">No participants yet</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {sessionParticipants.map((participant) => (
+                        <div key={participant.id} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-200">{participant.display_name}</div>
+                            <div className="text-sm text-slate-400">
+                              Amount: ₹{participant.amount} • Joined: {new Date(participant.created_at).toLocaleString()}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteParticipant(participant.id, session.id, participant.display_name)}
+                            className="btn btn-error btn-xs"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
@@ -206,6 +314,76 @@ export default function AdminPage() {
       alert('Failed to load sessions')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadParticipants(sessionId: string): Promise<Participant[]> {
+    try {
+      const { data: participants, error } = await supabase
+        .from('participants')
+        .select('id, display_name, amount, device_id, created_at')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+      return participants || []
+    } catch (error) {
+      console.error('Error loading participants:', error)
+      alert('Failed to load participants')
+      return []
+    }
+  }
+
+  async function refreshParticipants(sessionId: string) {
+    try {
+      const updatedParticipants = await loadParticipants(sessionId)
+      console.log('Participants refreshed for session:', sessionId)
+      return updatedParticipants
+    } catch (error) {
+      console.error('Error refreshing participants:', error)
+      return []
+    }
+  }
+
+  async function deleteParticipant(participantId: string, sessionId: string) {
+    try {
+      console.log('Attempting to delete participant:', participantId)
+      console.log('Session ID:', sessionId)
+      
+      // First, let's verify the participant exists
+      const { data: participantData, error: checkError } = await supabase
+        .from('participants')
+        .select('id, display_name, amount')
+        .eq('id', participantId)
+        .single()
+
+      if (checkError) {
+        console.error('Error checking participant:', checkError)
+        throw new Error('Participant not found')
+      }
+
+      console.log('Participant found:', participantData)
+
+      // Delete the participant (this will cascade delete their bids)
+      const { error: deleteError } = await supabase
+        .from('participants')
+        .delete()
+        .eq('id', participantId)
+
+      if (deleteError) {
+        console.error('Error deleting participant:', deleteError)
+        throw deleteError
+      }
+
+      console.log('Participant deleted successfully from database')
+      alert('Participant deleted successfully')
+      
+      // Reload sessions to update participant counts
+      await loadSessions()
+      
+    } catch (error) {
+      console.error('Error deleting participant:', error)
+      alert(`Failed to delete participant: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -313,7 +491,12 @@ export default function AdminPage() {
               Loading sessions...
             </div>
           ) : (
-            <SessionsList sessions={sessions} onDelete={deleteSession} />
+            <SessionsList 
+              sessions={sessions} 
+              onDelete={deleteSession} 
+              onDeleteParticipant={deleteParticipant} 
+              onLoadParticipants={loadParticipants}
+            />
           )}
         </div>
       )}
