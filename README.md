@@ -30,6 +30,20 @@ A modern, real-time auction platform built with **Next.js 14** and **Supabase**.
 
 ---
 
+## 📸 **App Screenshots**
+
+### **👨‍💼 Admin Panel Interface**
+![Admin Panel](docs/admin-panel.png)
+*Admin dashboard showing active sessions, participant management, and session controls*
+
+### **👥 End User Auction Interface**
+![End User Interface](docs/end-user-interface.png)
+*Public auction session with real-time bidding, participant list, and custom amount input*
+
+> **📝 Note**: Screenshots should be placed in the `docs/` folder. See `docs/README.md` for detailed guidelines on taking and organizing screenshots.
+
+---
+
 ## 🛠️ **Technical Architecture**
 
 ### **Frontend Stack**
@@ -78,7 +92,7 @@ cd FunAuction---ReactApp
 npm install
 
 # Set up environment variables
-cp .env.example .env.local
+cp env.example .env.local
 ```
 
 ### **3. Supabase Configuration**
