@@ -92,7 +92,7 @@ cd FunAuction---ReactApp
 npm install
 
 # Set up environment variables
-cp .env.example .env.local
+cp env.example .env.local
 ```
 
 ### **3. Supabase Configuration**
