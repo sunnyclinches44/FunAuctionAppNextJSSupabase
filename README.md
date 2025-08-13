@@ -1,4 +1,4 @@
-# 🏷️ Ganesh Laddu Auction App
+# 🏷️ Fun Auction App
 
 A modern, real-time auction platform built with **Next.js 14** and **Supabase**. Designed for seamless auction management where administrators create sessions and participants join instantly via shared codes without requiring accounts.
 
@@ -72,7 +72,7 @@ bids         → Individual bid records with timestamps
 ```bash
 # Clone the repository
 git clone <your-repo-url>
-cd GaneshLadduAuction---ReactApp
+cd FunAuction---ReactApp
 
 # Install dependencies
 npm install
