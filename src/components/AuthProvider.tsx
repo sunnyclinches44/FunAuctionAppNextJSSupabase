@@ -33,8 +33,12 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     return () => { mounted = false; sub.subscription.unsubscribe() }
   }, [])
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+  }
+
   return (
-    <Ctx.Provider value={{ user, loading, signOut: () => supabase.auth.signOut() }}>
+    <Ctx.Provider value={{ user, loading, signOut: handleSignOut }}>
       {children}
     </Ctx.Provider>
   )
