@@ -27,10 +27,15 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
     // 2) subscribe to auth changes
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return
       setUser(session?.user ?? null)
+      setLoading(false)
     })
 
-    return () => { mounted = false; sub.subscription.unsubscribe() }
+    return () => { 
+      mounted = false; 
+      sub.subscription.unsubscribe() 
+    }
   }, [])
 
   const handleSignOut = async () => {
