@@ -12,7 +12,7 @@ function randomCode(len = 6) {
 }
 
 export default function CreateSessionPage() {
-  const [title, setTitle] = useState('Ganesh Laddu Auction')
+  const [title, setTitle] = useState('Fun Auction')
   const [code, setCode] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [origin, setOrigin] = useState('')
