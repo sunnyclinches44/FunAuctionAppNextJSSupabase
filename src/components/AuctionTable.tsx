@@ -18,7 +18,7 @@ export default function AuctionTable(){
           <div key={name} className="card p-3">
             <div className="flex items-center justify-between">
               <div className="font-semibold">{name}</div>
-              <div className="text-sm text-slate-400">Contribution</div>
+              <div className="text-sm text-slate-400">Bid</div>
             </div>
             <div className="mt-1 text-xl">${amt}</div>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -42,7 +42,7 @@ export default function AuctionTable(){
         <thead>
           <tr>
             <th>Participant</th>
-            <th>Contribution ($)</th>
+            <th>Bid ($)</th>
             <th className="text-right">Quick Add</th>
           </tr>
         </thead>

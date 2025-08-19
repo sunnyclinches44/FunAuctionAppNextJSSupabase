@@ -93,7 +93,7 @@ function SessionsList({ sessions, onDelete, onDeleteParticipant, onLoadParticipa
   }
 
   const handleDeleteParticipant = async (participantId: string, sessionId: string, participantName: string) => {
-    if (!confirm(`Are you sure you want to delete participant "${participantName}"? This will remove all their bids and contributions.`)) {
+            if (!confirm(`Are you sure you want to delete participant "${participantName}"? This will remove all their bids.`)) {
       return
     }
 

@@ -1,490 +1,396 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabaseClient'
-
-// Configuration constants
-const AUCTION_CONFIG = {
-  MIN_BID_AMOUNT: 5,
-  MAX_BID_AMOUNT: 10000,
-  PRESET_AMOUNTS: [5, 10, 15, 20, 50] as const,
-  DEVICE_ID_KEY: 'laddu_device_id',
-  DISPLAY_NAME_KEY: 'laddu_display_name'
-} as const
-
-type Session = { id: string; code: string; title: string }
-type Participant = {
-  id: string
-  session_id: string
-  user_id: string | null
-  device_id: string | null
-  display_name: string
-  amount: number
-}
-
-function getOrCreateDeviceId() {
-  if (typeof window === 'undefined') return ''
-  const KEY = AUCTION_CONFIG.DEVICE_ID_KEY
-  let id = localStorage.getItem(KEY)
-  if (!id) {
-    id = (crypto?.randomUUID?.() || Math.random().toString(36).slice(2)) + ''
-    localStorage.setItem(KEY, id)
-  }
-  return id
-}
+import { getOrCreateDeviceId, getDisplayName, saveDisplayName } from '@/lib/utils'
+import { useSessionStore, useCurrentSession, useParticipants, useTotalAmount, useIsLoading, useError, useRtReady } from '@/store/useSessionStore'
+import { useRealTime } from '@/hooks/useRealTime'
+import { useBidding } from '@/hooks/useBidding'
+import SessionHeader from '@/components/session/SessionHeader'
+import ParticipantJoin from '@/components/session/ParticipantJoin'
+import ParticipantsList from '@/components/session/ParticipantsList'
+import Leaderboard from '@/components/session/Leaderboard'
+import BidsHistory from '@/components/BidsHistory'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import ErrorBoundary from '@/components/ErrorBoundary'
+import AchievementToast from '@/components/ui/AchievementToast'
 
 export default function SessionRoom() {
   const { code } = useParams<{ code: string }>()
-  const [session, setSession] = useState<Session | null>(null)
-  const [participants, setParticipants] = useState<Participant[]>([])
   const [myDeviceId, setMyDeviceId] = useState<string>('')
   const [myName, setMyName] = useState<string>('')
-  const [custom, setCustom] = useState<Record<string, string>>({})
-  const [rtReady, setRtReady] = useState(false)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [showCustomInput, setShowCustomInput] = useState<string | null>(null)
-  const [customAmount, setCustomAmount] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   const [isSavingName, setIsSavingName] = useState(false)
-  const [isPlacingBid, setIsPlacingBid] = useState<string | null>(null)
+  const [achievementToast, setAchievementToast] = useState<{
+    message: string
+    type: 'success' | 'achievement' | 'info'
+  } | null>(null)
 
-  const total = useMemo(
-    () => participants.reduce((a, p) => a + Number(p.amount || 0), 0),
-    [participants]
-  )
+  // Enhanced store hooks
+  const { loadSession, joinSession, placeBid: storePlaceBid } = useSessionStore()
+  const session = useCurrentSession()
+  const participants = useParticipants()
+  const isLoading = useIsLoading()
+  const error = useError()
+  const rtReady = useRtReady()
+  const totalAmount = useTotalAmount()
 
-  const myRow = useMemo(
-    () => participants.find((p) => p.device_id === myDeviceId) || null,
-    [participants, myDeviceId]
-  )
+  // Bidding hook - only initialize when we have both code and deviceId
+  const { 
+    isPlacingBid, 
+    showCustomInput, 
+    customAmount, 
+    placeBid, 
+    placeCustomBid, 
+    setCustomInput, 
+    updateCustomAmount 
+  } = useBidding(code && myDeviceId ? code : '', myDeviceId || '')
 
-  // Memoize active participants for better performance
-  const activeParticipants = useMemo(
-    () => participants.filter(p => Number(p.amount || 0) > 0),
-    [participants]
-  )
+  // Real-time updates
+  useRealTime(session?.id || null)
 
-  // Memoize participants count
-  const participantsCount = useMemo(
-    () => participants.length,
-    [participants]
-  )
-
-  // boot: load deviceId + display name
+  // Initialize device ID and display name
   useEffect(() => {
     const id = getOrCreateDeviceId()
     setMyDeviceId(id)
-    const saved = typeof window !== 'undefined' ? localStorage.getItem(AUCTION_CONFIG.DISPLAY_NAME_KEY) || '' : ''
+    const saved = getDisplayName()
     setMyName(saved)
   }, [])
 
-  // load session + participants using RPC function
+  // Load session on mount
   useEffect(() => {
-    let alive = true
-    setIsLoading(true)
-    ;(async () => {
-      setErrorMsg(null)
-
-      try {
-        // Use RPC function to get session details
-        const { data: sessionData, error: sessionError } = await supabase.rpc('get_session_details', {
-          p_session_code: code
-        })
-
-        if (sessionError) {
-          console.error('Error getting session details:', sessionError)
-          setErrorMsg(sessionError.message || 'Session not found or not accessible.')
-          setIsLoading(false)
-          return
-        }
-
-        if (!alive) return
-
-        // Set session data
-        setSession({
-          id: sessionData.session.id,
-          code: sessionData.session.code,
-          title: sessionData.session.title
-        })
-
-        // Set participants data
-        setParticipants(sessionData.participants || [])
-        
-        console.log('Session loaded successfully:', sessionData)
-        
-      } catch (error) {
-        console.error('Error loading session:', error)
-        setErrorMsg('Failed to load session')
-      } finally {
-        setIsLoading(false)
-      }
-    })()
-    return () => { alive = false }
-  }, [code])
-
-  // realtime subscribe (works for anon)
-  useEffect(() => {
-    if (!session?.id) return
-    const channel = supabase
-      .channel(`participants:${session.id}`, { config: { broadcast: { ack: true } } })
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
-        (payload) => setParticipants((prev) => [...prev, payload.new as any])
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
-        (payload) =>
-          setParticipants((prev) => {
-            const next = [...prev]
-            const i = next.findIndex((p) => p.id === (payload.new as any).id)
-            if (i >= 0) next[i] = payload.new as any
-            return next
-          })
-      )
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
-        (payload) => setParticipants((prev) => prev.filter((p) => p.id !== (payload.old as any).id))
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') setRtReady(true)
-      })
-
-    return () => {
-      setRtReady(false)
-      supabase.removeChannel(channel)
+    if (code && typeof code === 'string') {
+      console.log('Loading session with code:', code)
+      loadSession(code)
     }
-  }, [session?.id])
+  }, [code, loadSession])
 
-  // Keyboard navigation support
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Escape key closes custom input modal
-      if (e.key === 'Escape' && showCustomInput) {
-        setShowCustomInput(null)
-        setCustomAmount('')
-      }
-      
-      // Enter key in custom amount input
-      if (e.key === 'Enter' && showCustomInput && customAmount.trim()) {
-        const validation = validateCustomAmount(customAmount)
-        if (validation.valid) {
-          handleCustomAmount(showCustomInput)
-        }
-      }
-    }
-    
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [showCustomInput, customAmount])
+  // Handle name saving
+  const handleSaveName = async () => {
+    if (!myName.trim() || !code) return
 
-  // ----- actions -----
-
-  // Save name + create (or update) my participant row using RPC function
-  async function saveName() {
-    const name = (myName || '').trim()
-    if (!name) { 
-      alert('Please enter your display name.'); 
-      return 
-    }
-    
-    if (name.length < 2) {
-      alert('Display name must be at least 2 characters long.')
-      return
-    }
-    
-    if (name.length > 50) {
-      alert('Display name cannot exceed 50 characters.')
-      return
-    }
-    
-    if (!session) {
-      alert('Session not loaded yet. Please wait.')
-      return
-    }
-    
     setIsSavingName(true)
-    localStorage.setItem(AUCTION_CONFIG.DISPLAY_NAME_KEY, name)
-
     try {
-      // Use RPC function to join session
-      const { data, error } = await supabase.rpc('join_session', {
-        p_session_code: session.code,
-        p_display_name: name,
-        p_device_id: myDeviceId
-      })
+      const success = await joinSession(code, myName.trim(), myDeviceId)
 
-      if (error) {
-        console.error('Error joining session:', error)
-        throw error
-      }
-
-      console.log('Session join result:', data)
-      
-      if (data.success) {
-        console.log(`Participant ${data.action} successfully`)
-        // The real-time subscription will handle updating the UI
-      } else {
-        throw new Error('Failed to join session')
+      if (success) {
+        // Save to localStorage
+        saveDisplayName(myName.trim())
+        
+        // Reload session data
+        await loadSession(code)
       }
       
     } catch (error) {
-      console.error('Error saving name:', error)
-      alert(`Failed to save your name: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Error joining session:', error)
+      alert('Failed to join session. Please try again.')
     } finally {
       setIsSavingName(false)
     }
   }
 
-  async function place(delta: number) {
-    if (!myRow || !session) return
-
-    setIsPlacingBid(myRow.id)
-    
-    try {
-      // Optimistic update
-      setParticipants((prev) => {
-        const next = [...prev]
-        const i = next.findIndex((p) => p.id === myRow.id)
-        if (i >= 0) next[i] = { ...next[i], amount: Number(next[i].amount || 0) + delta }
-        return next
-      })
-
-      // Use RPC function to place bid
-      const { data, error } = await supabase.rpc('place_bid', {
-        p_session_code: session.code,
-        p_device_id: myDeviceId,
-        p_amount: delta
-      })
-
-      if (error) {
-        console.error('Error placing bid:', error)
-        throw error
-      }
-
-      console.log('Bid placed successfully:', data)
-      
-      // The real-time subscription will handle updating the UI with the actual data
-      
-    } catch (error) {
-      console.error('Error placing bid:', error)
-      alert(error instanceof Error ? error.message : 'Failed to place bid')
-      
-      // revert optimistic change
-      setParticipants((prev) => {
-        const next = [...prev]
-        const i = next.findIndex((p) => p.id === myRow.id)
-        if (i >= 0) next[i] = { ...next[i], amount: Number(next[i].amount || 0) - delta }
-        return next
-      })
-    } finally {
-      setIsPlacingBid(null)
+  // Handle preset bid placement
+  const handlePlaceBid = async (amount: number, participantId: string): Promise<boolean> => {
+    if (!hasJoined) {
+      alert('Please join the session first before placing bids.')
+      return false
     }
+    
+    const success = await placeBid(amount, participantId)
+    if (success) {
+      await loadSession(code)
+    }
+    return success
   }
 
-  // Validation function for custom amounts
-  const validateCustomAmount = (amount: string): { valid: boolean; error?: string } => {
-    if (!amount || amount.trim() === '') {
-      return { valid: false, error: 'Amount is required' }
-    }
-    
-    const num = Number(amount)
-    if (!Number.isFinite(num)) {
-      return { valid: false, error: 'Invalid number format' }
-    }
-    
-    if (num < AUCTION_CONFIG.MIN_BID_AMOUNT) {
-      return { valid: false, error: `Amount must be at least $${AUCTION_CONFIG.MIN_BID_AMOUNT}` }
-    }
-    
-    if (num > AUCTION_CONFIG.MAX_BID_AMOUNT) {
-      return { valid: false, error: `Amount cannot exceed $${AUCTION_CONFIG.MAX_BID_AMOUNT}` }
-    }
-    
-    return { valid: true }
-  }
-
-  async function handleCustomAmount(pid: string) {
-    const validation = validateCustomAmount(customAmount)
-    
-    if (!validation.valid) {
-      alert(validation.error)
+  // Handle custom bid placement
+  const handleCustomBidSubmit = async (participantId: string) => {
+    if (!hasJoined) {
+      alert('Please join the session first before placing bids.')
       return
     }
     
-    const amount = Number(customAmount)
+    if (!customAmount) return
     
-    try {
-      await place(amount)
-      // Close the modal and clear input
-      setShowCustomInput(null)
-      setCustomAmount('')
-    } catch (error) {
-      console.error('Error placing custom bid:', error)
+    const amount = Number(customAmount)
+    if (amount < 5 || amount > 10000) {
+      alert('Please enter an amount between $5 and $10,000')
+      return
+    }
+
+    const success = await placeCustomBid(amount, participantId)
+    if (success) {
+      await loadSession(code)
     }
   }
 
-  // ----- render -----
-  if (errorMsg) {
+  // Check if current user has joined
+  const myRow = participants.find((p) => p.device_id === myDeviceId)
+  const hasJoined = !!myRow
+
+  // Detect when someone becomes the highest bidder
+  useEffect(() => {
+    if (participants.length > 0) {
+      const highestBidder = participants.reduce((highest, current) => 
+        Number(current.amount || 0) > Number(highest.amount || 0) ? current : highest
+      , participants[0])
+
+      // Check if this is a new highest bidder (you can add more sophisticated logic here)
+      if (highestBidder && highestBidder.amount > 0) {
+        const isMyAchievement = highestBidder.device_id === myDeviceId
+        
+        if (isMyAchievement) {
+          setAchievementToast({
+            message: `🎉 Congratulations! You're now the highest bidder with $${highestBidder.amount}!`,
+            type: 'achievement'
+          })
+        } else {
+          setAchievementToast({
+            message: `🏆 ${highestBidder.display_name} is now leading with $${highestBidder.amount}!`,
+            type: 'info'
+          })
+        }
+      }
+    }
+  }, [participants, myDeviceId])
+
+  if (isLoading) {
     return (
-      <main className="max-w-2xl mx-auto p-6">
-        <div className="card p-5">
-          <div className="text-red-300 font-semibold mb-2">Error</div>
-          <div className="text-slate-300">{errorMsg}</div>
+      <main className="relative z-10">
+        <div className="text-center py-8">
+          <LoadingSpinner size="lg" className="mx-auto mb-4" />
+          <p className="text-slate-400">Loading session...</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (error) {
+    return (
+      <main className="relative z-10">
+        <div className="text-center py-8">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-red-400 mb-2">Error Loading Session</h2>
+          <p className="text-red-300 mb-4">{error}</p>
+          <button
+            onClick={() => loadSession(code)}
+            className="btn bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg"
+          >
+            Try Again
+          </button>
         </div>
       </main>
     )
   }
 
   return (
-    <main className="relative z-10">
-      <header className="text-center pt-6">
-        <h1 className="text-3xl sm:text-4xl font-extrabold grand">🙏 Fun Auction</h1>
-        <div className="text-slate-400 mt-1">{session?.title || 'Live Session'}</div>
-        <div className={`mt-2 text-xs ${rtReady ? 'text-green-400' : 'text-slate-500'}`}>
-          Realtime: {rtReady ? 'connected' : 'connecting…'}
-        </div>
-      </header>
+    <ErrorBoundary>
+      <main className="relative z-10">
+        <SessionHeader title={session?.title} rtReady={rtReady} />
 
-      <section className="max-w-2xl mx-auto p-4 pb-28 space-y-4">
-        {/* Your name (creates your row on Save) */}
-        <div className="card p-4">
-          <div className="text-sm text-slate-400 mb-2">Your display name</div>
-          <div className="flex gap-2">
-            <input
-              value={myName}
-              onChange={(e) => setMyName(e.target.value)}
-              placeholder="e.g., Sandeep"
-              className="flex-1 bg-white/5 border border-[var(--border)] rounded-xl px-3 py-2 outline-none"
-              disabled={!!myRow} // Disable if user has already joined
-            />
-            <button 
-              className="btn btn-ghost px-3 py-2" 
-              onClick={saveName}
-              disabled={isSavingName || !!myRow} // Disable if already joined
+        {/* Achievement Toast */}
+        {achievementToast && (
+          <AchievementToast
+            message={achievementToast.message}
+            type={achievementToast.type}
+            onClose={() => setAchievementToast(null)}
+            duration={5000}
+          />
+        )}
+
+        {/* Floating Action Button for Mobile */}
+        <div className="fixed bottom-6 right-6 lg:hidden z-40">
+          <div className="flex flex-col gap-3">
+            {/* Quick Participants List Access - Now the primary action */}
+            <button
+              onClick={() => {
+                const participantsList = document.querySelector('.mobile-participants-list')
+                if (participantsList) {
+                  participantsList.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+              }}
+              className="btn btn-primary w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-2xl"
+              title="View Participants & Bid"
             >
-              {isSavingName ? 'Saving...' : myRow ? 'Joined ✓' : 'Save'}
+              👥
+            </button>
+            
+            {/* Quick Leaderboard Access */}
+            <button
+              onClick={() => {
+                const leaderboard = document.querySelector('.mobile-leaderboard')
+                if (leaderboard) {
+                  leaderboard.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+              }}
+              className="btn bg-slate-600 hover:bg-slate-700 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-xl font-bold"
+              title="View Leaderboard"
+            >
+              🏆
+            </button>
+            
+            {/* Quick Total Access */}
+            <button
+              onClick={() => {
+                const total = document.querySelector('.mobile-total')
+                if (total) {
+                  total.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+              }}
+              className="btn bg-slate-600 hover:bg-slate-700 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-xl font-bold"
+              title="View Total"
+            >
+              $
             </button>
           </div>
-          {myRow && (
-            <div className="mt-2 text-sm text-green-400">
-              ✓ Successfully joined as "{myRow.display_name}"
+        </div>
+
+        <section className="max-w-7xl mx-auto p-4 pb-28">
+          {/* Mobile Layout: Single Column Stack */}
+          <div className="block lg:hidden space-y-4">
+            {/* Participant Join Interface */}
+            <ParticipantJoin
+              myName={myName}
+              onNameChange={setMyName}
+              onSave={handleSaveName}
+              isSaving={isSavingName}
+              hasJoined={hasJoined}
+              displayName={myRow?.display_name}
+            />
+
+            {/* Participants List - Moved above Leaderboard for better mobile UX */}
+            <div className="mobile-participants-list">
+              <ParticipantsList
+                participants={participants}
+                currentDeviceId={myDeviceId}
+                onPlaceBid={handlePlaceBid}
+                onCustomBid={(participantId) => setCustomInput(participantId)}
+                isPlacingBid={isPlacingBid}
+                showCustomInput={showCustomInput}
+                customAmount={customAmount}
+                onCustomAmountChange={updateCustomAmount}
+                onCustomAmountSubmit={handleCustomBidSubmit}
+                onCustomAmountCancel={() => setCustomInput(null)}
+              />
             </div>
-          )}
-        </div>
 
-        {isLoading ? (
-          <div className="text-center py-8">
-            <p className="text-slate-400">Loading session...</p>
-          </div>
-        ) : (
-          participants.map((p) => {
-            const isSelf = p.device_id && p.device_id === myDeviceId
-            return (
-              <div key={p.id} className="card p-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-lg font-semibold">{p.display_name}</div>
-                  <div className="text-slate-400 hidden sm:block">Contribution</div>
-                </div>
-                <div className="mt-1 text-2xl font-extrabold">${Number(p.amount || 0)}</div>
+            {/* Leaderboard - Moved below Participants List for mobile */}
+            <div className="mobile-leaderboard">
+              <Leaderboard participants={participants} />
+            </div>
 
-                {/* Only show bid buttons for current user */}
-                {isSelf ? (
-                  <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-start">
-                    {AUCTION_CONFIG.PRESET_AMOUNTS.map((a) => (
-                      <button
-                        key={a}
-                        disabled={isPlacingBid === p.id}
-                        className={`btn px-3 py-2 rounded-lg ${
-                          isPlacingBid !== p.id
-                            ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
-                            : 'bg-white/10 text-slate-400 cursor-not-allowed'
-                        }`}
-                        onClick={() => place(a)}
-                      >
-                        {isPlacingBid === p.id ? '...' : `+$${a}`}
-                      </button>
-                    ))}
-                    
-                    {/* Custom Amount Button */}
-                    <button
-                      disabled={isPlacingBid === p.id}
-                      className={`btn px-3 py-2 rounded-lg ${
-                        isPlacingBid !== p.id
-                          ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
-                          : 'bg-white/10 text-slate-400 cursor-not-allowed'
-                      }`}
-                      onClick={() => {
-                        setShowCustomInput(p.id)
-                        setCustomAmount('')
-                      }}
-                    >
-                      Custom
-                    </button>
-                  </div>
-                ) : null}
+            {/* Bids History */}
+            <BidsHistory sessionCode={code} />
 
-                {/* Custom Amount Modal - only show for current user */}
-                {isSelf && showCustomInput === p.id && (
-                  <div className="mt-4 p-4 bg-slate-800/50 border border-slate-600 rounded-xl backdrop-blur-sm">
-                    <div className="text-sm text-slate-300 mb-3">Enter custom amount (≥ $5)</div>
-                    <div className="flex gap-3">
-                      <input
-                        type="number"
-                        min={AUCTION_CONFIG.MIN_BID_AMOUNT}
-                        step="1"
-                        value={customAmount}
-                        onChange={(e) => setCustomAmount(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleCustomAmount(p.id)
-                          } else if (e.key === 'Escape') {
-                            setShowCustomInput(null)
-                            setCustomAmount('')
-                          }
-                        }}
-                        placeholder="Enter amount..."
-                        className="flex-1 bg-white/10 border border-slate-500 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        autoFocus
-                      />
-                      <button
-                        onClick={() => handleCustomAmount(p.id)}
-                        disabled={!customAmount || Number(customAmount) < AUCTION_CONFIG.MIN_BID_AMOUNT}
-                        className={`btn px-3 py-2 rounded-lg ${
-                          customAmount && Number(customAmount) >= AUCTION_CONFIG.MIN_BID_AMOUNT
-                            ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
-                            : 'bg-white/10 text-slate-400 cursor-not-allowed'
-                        }`}
-                      >
-                        Add
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowCustomInput(null)
-                          setCustomAmount('')
-                        }}
-                        className="btn bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
+            {/* Grand Total */}
+            <div className="mobile-total p-4 bg-slate-800/30 border border-slate-600 rounded-xl">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-medium text-slate-300">Grand Total</span>
+                <span className="text-2xl font-bold text-[var(--neon)]">
+                  ${totalAmount}
+                </span>
               </div>
-            )
-          })
-        )}
-      </section>
+            </div>
+          </div>
 
-      <div className="stickyTotal">
-        <div className="w-full max-w-2xl flex items-center justify-between p-3">
-          <div className="text-slate-400">Grand Total</div>
-          <div className="grand text-2xl">${total}</div>
-        </div>
-      </div>
-    </main>
+          {/* Desktop/Tablet Layout: Multi-Column Grid */}
+          <div className="hidden lg:grid lg:grid-cols-12 lg:gap-6">
+            {/* Left Column: Join + Leaderboard */}
+            <div className="lg:col-span-3 space-y-4">
+              {/* Sticky Join Section */}
+              <div className="sticky top-4">
+                <ParticipantJoin
+                  myName={myName}
+                  onNameChange={setMyName}
+                  onSave={handleSaveName}
+                  isSaving={isSavingName}
+                  hasJoined={hasJoined}
+                  displayName={myRow?.display_name}
+                />
+              </div>
+
+              {/* Leaderboard */}
+              <Leaderboard participants={participants} />
+            </div>
+
+            {/* Center Column: Participants List */}
+            <div className="lg:col-span-6">
+              <ParticipantsList
+                participants={participants}
+                currentDeviceId={myDeviceId}
+                onPlaceBid={handlePlaceBid}
+                onCustomBid={(participantId) => setCustomInput(participantId)}
+                isPlacingBid={isPlacingBid}
+                showCustomInput={showCustomInput}
+                customAmount={customAmount}
+                onCustomAmountChange={updateCustomAmount}
+                onCustomAmountSubmit={handleCustomBidSubmit}
+                onCustomAmountCancel={() => setCustomInput(null)}
+              />
+            </div>
+
+            {/* Right Column: Bids History + Total */}
+            <div className="lg:col-span-3 space-y-4">
+              {/* Sticky Bids History */}
+              <div className="sticky top-4">
+                <BidsHistory sessionCode={code} />
+              </div>
+
+              {/* Grand Total */}
+              <div className="p-4 bg-slate-800/30 border border-slate-600 rounded-xl">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-medium text-slate-300">Grand Total</span>
+                  <span className="text-2xl font-bold text-[var(--neon)]">
+                    ${totalAmount}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tablet Layout: 2-Column Grid */}
+          <div className="hidden md:block lg:hidden">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Left Column: Join + Leaderboard */}
+              <div className="space-y-4">
+                <ParticipantJoin
+                  myName={myName}
+                  onNameChange={setMyName}
+                  onSave={handleSaveName}
+                  isSaving={isSavingName}
+                  hasJoined={hasJoined}
+                  displayName={myRow?.display_name}
+                />
+                <Leaderboard participants={participants} />
+              </div>
+
+              {/* Right Column: Participants + Bids + Total */}
+              <div className="space-y-4">
+                <ParticipantsList
+                  participants={participants}
+                  currentDeviceId={myDeviceId}
+                  onPlaceBid={handlePlaceBid}
+                  onCustomBid={(participantId) => setCustomInput(participantId)}
+                  isPlacingBid={isPlacingBid}
+                  showCustomInput={showCustomInput}
+                  customAmount={customAmount}
+                  onCustomAmountChange={updateCustomAmount}
+                  onCustomAmountSubmit={handleCustomBidSubmit}
+                  onCustomAmountCancel={() => setCustomInput(null)}
+                />
+                <BidsHistory sessionCode={code} />
+                <div className="p-4 bg-slate-800/30 border border-slate-600 rounded-xl">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-medium text-slate-300">Grand Total</span>
+                    <span className="text-2xl font-bold text-[var(--neon)]">
+                      ${totalAmount}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </ErrorBoundary>
   )
 }

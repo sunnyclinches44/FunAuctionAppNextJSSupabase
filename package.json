@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "analyze": "node scripts/analyze-bundle.js",
+    "analyze:build": "ANALYZE=true npm run build"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",
