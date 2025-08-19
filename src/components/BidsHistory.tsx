@@ -10,6 +10,16 @@ interface Bid {
   created_at: string
 }
 
+// Type for the raw data from Supabase join
+interface RawBidData {
+  id: string
+  delta: number
+  created_at: string
+  participants: {
+    display_name: string
+  }[]
+}
+
 interface BidsHistoryProps {
   sessionCode: string
 }
@@ -90,9 +100,9 @@ export default function BidsHistory({ sessionCode }: BidsHistoryProps) {
       }
 
       // Transform data to match our interface
-      const transformedBids: Bid[] = data.map(bid => ({
+      const transformedBids: Bid[] = (data as RawBidData[]).map(bid => ({
         id: bid.id,
-        participant_name: bid.participants.display_name,
+        participant_name: bid.participants[0].display_name, // Assuming only one participant for simplicity
         amount: bid.delta,
         created_at: bid.created_at
       }))
