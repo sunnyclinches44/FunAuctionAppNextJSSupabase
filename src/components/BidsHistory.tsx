@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
 interface Bid {
@@ -29,39 +29,8 @@ export default function BidsHistory({ sessionCode }: BidsHistoryProps) {
   const [loading, setLoading] = useState(true)
   const [sessionId, setSessionId] = useState<string | null>(null)
 
-  // Fetch initial bid history and get session_id
-  useEffect(() => {
-    loadBidHistory()
-  }, [sessionCode])
-
-  // Real-time subscription for new bids - FIXED: Use session_id instead of session_code
-  useEffect(() => {
-    if (!sessionId) return // Wait until we have the session_id
-
-    const channel = supabase
-      .channel(`bids-${sessionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'bids',
-          filter: `session_id=eq.${sessionId}` // FIXED: Use actual session_id
-        },
-        (payload) => {
-          console.log('New bid received:', payload)
-          // Reload the entire history since we need to join with participants
-          loadBidHistory()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [sessionId, sessionCode]) // Added sessionCode dependency
-
-  async function loadBidHistory() {
+  // Define loadBidHistory with useCallback to fix dependency issues
+  const loadBidHistory = useCallback(async () => {
     try {
       setLoading(true)
       
@@ -113,7 +82,39 @@ export default function BidsHistory({ sessionCode }: BidsHistoryProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [sessionCode])
+
+  // Fetch initial bid history and get session_id
+  useEffect(() => {
+    loadBidHistory()
+  }, [loadBidHistory])
+
+  // Real-time subscription for new bids - FIXED: Use session_id instead of session_code
+  useEffect(() => {
+    if (!sessionId) return // Wait until we have the session_id
+
+    const channel = supabase
+      .channel(`bids-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'bids',
+          filter: `session_id=eq.${sessionId}` // FIXED: Use actual session_id
+        },
+        (payload) => {
+          console.log('New bid received:', payload)
+          // Reload the entire history since we need to join with participants
+          loadBidHistory()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [sessionId, loadBidHistory])
 
   function formatTimeAgo(dateString: string): string {
     const now = new Date()

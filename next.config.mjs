@@ -1,20 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Enable bundle analysis in development
-  ...(process.env.ANALYZE === 'true' && {
-    webpack: (config) => {
-      config.plugins.push(
-        new (require('@next/bundle-analyzer'))({
-          enabled: true,
-        })
-      )
-      return config
-    },
-  }),
-  
-  // Performance optimizations
+  // Performance optimizations (stable features only)
   experimental: {
-    optimizeCss: true,
     optimizePackageImports: ['@supabase/supabase-js'],
   },
   

@@ -47,7 +47,7 @@ function SignInCard({ onDone }: { onDone?: () => void }) {
       <h3 className="text-lg font-semibold mb-2">Admin login</h3>
       {sent ? (
         <div className="text-amber-300 text-sm">
-          Magic link sent. After you click it, you'll return here.
+          Magic link sent. After you click it, you&apos;ll return here.
         </div>
       ) : (
         <form onSubmit={send} className="flex gap-2">

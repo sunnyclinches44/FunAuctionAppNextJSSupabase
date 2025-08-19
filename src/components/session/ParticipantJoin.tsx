@@ -38,7 +38,7 @@ const ParticipantJoin = memo(function ParticipantJoin({
       </div>
       {hasJoined && displayName && (
         <div className="mt-2 text-sm text-green-400">
-          ✓ Successfully joined as "{displayName}"
+          ✓ Successfully joined as &quot;{displayName}&quot;
         </div>
       )}
     </div>
