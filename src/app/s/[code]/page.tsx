@@ -9,15 +9,21 @@ import { useBidding } from '@/hooks/useBidding'
 import SessionHeader from '@/components/session/SessionHeader'
 import ParticipantJoin from '@/components/session/ParticipantJoin'
 import ParticipantsList from '@/components/session/ParticipantsList'
+import Leaderboard from '@/components/session/Leaderboard'
 import BidsHistory from '@/components/BidsHistory'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import AchievementToast from '@/components/ui/AchievementToast'
 
 export default function SessionRoom() {
   const { code } = useParams<{ code: string }>()
   const [myDeviceId, setMyDeviceId] = useState<string>('')
   const [myName, setMyName] = useState<string>('')
   const [isSavingName, setIsSavingName] = useState(false)
+  const [achievementToast, setAchievementToast] = useState<{
+    message: string
+    type: 'success' | 'achievement' | 'info'
+  } | null>(null)
 
   // Enhanced store hooks
   const { loadSession, joinSession, placeBid: storePlaceBid } = useSessionStore()
@@ -121,6 +127,32 @@ export default function SessionRoom() {
   const myRow = participants.find((p) => p.device_id === myDeviceId)
   const hasJoined = !!myRow
 
+  // Detect when someone becomes the highest bidder
+  useEffect(() => {
+    if (participants.length > 0) {
+      const highestBidder = participants.reduce((highest, current) => 
+        Number(current.amount || 0) > Number(highest.amount || 0) ? current : highest
+      , participants[0])
+
+      // Check if this is a new highest bidder (you can add more sophisticated logic here)
+      if (highestBidder && highestBidder.amount > 0) {
+        const isMyAchievement = highestBidder.device_id === myDeviceId
+        
+        if (isMyAchievement) {
+          setAchievementToast({
+            message: `🎉 Congratulations! You're now the highest bidder with $${highestBidder.amount}!`,
+            type: 'achievement'
+          })
+        } else {
+          setAchievementToast({
+            message: `🏆 ${highestBidder.display_name} is now leading with $${highestBidder.amount}!`,
+            type: 'info'
+          })
+        }
+      }
+    }
+  }, [participants, myDeviceId])
+
   if (isLoading) {
     return (
       <main className="relative z-10">
@@ -155,41 +187,206 @@ export default function SessionRoom() {
       <main className="relative z-10">
         <SessionHeader title={session?.title} rtReady={rtReady} />
 
-        <section className="max-w-2xl mx-auto p-4 pb-28 space-y-4">
-          {/* Participant Join Interface */}
-          <ParticipantJoin
-            myName={myName}
-            onNameChange={setMyName}
-            onSave={handleSaveName}
-            isSaving={isSavingName}
-            hasJoined={hasJoined}
-            displayName={myRow?.display_name}
+        {/* Achievement Toast */}
+        {achievementToast && (
+          <AchievementToast
+            message={achievementToast.message}
+            type={achievementToast.type}
+            onClose={() => setAchievementToast(null)}
+            duration={5000}
           />
+        )}
 
-          {/* Participants List */}
-          <ParticipantsList
-            participants={participants}
-            currentDeviceId={myDeviceId}
-            onPlaceBid={handlePlaceBid}
-            onCustomBid={(participantId) => setCustomInput(participantId)}
-            isPlacingBid={isPlacingBid}
-            showCustomInput={showCustomInput}
-            customAmount={customAmount}
-            onCustomAmountChange={updateCustomAmount}
-            onCustomAmountSubmit={handleCustomBidSubmit}
-            onCustomAmountCancel={() => setCustomInput(null)}
-          />
+        {/* Floating Action Button for Mobile */}
+        <div className="fixed bottom-6 right-6 lg:hidden z-40">
+          <div className="flex flex-col gap-3">
+            {/* Quick Participants List Access - Now the primary action */}
+            <button
+              onClick={() => {
+                const participantsList = document.querySelector('.mobile-participants-list')
+                if (participantsList) {
+                  participantsList.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+              }}
+              className="btn btn-primary w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-2xl"
+              title="View Participants & Bid"
+            >
+              👥
+            </button>
+            
+            {/* Quick Leaderboard Access */}
+            <button
+              onClick={() => {
+                const leaderboard = document.querySelector('.mobile-leaderboard')
+                if (leaderboard) {
+                  leaderboard.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+              }}
+              className="btn bg-slate-600 hover:bg-slate-700 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-xl font-bold"
+              title="View Leaderboard"
+            >
+              🏆
+            </button>
+            
+            {/* Quick Total Access */}
+            <button
+              onClick={() => {
+                const total = document.querySelector('.mobile-total')
+                if (total) {
+                  total.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+              }}
+              className="btn bg-slate-600 hover:bg-slate-700 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-xl font-bold"
+              title="View Total"
+            >
+              $
+            </button>
+          </div>
+        </div>
 
-          {/* Bids History */}
-          <BidsHistory sessionCode={code} />
+        <section className="max-w-7xl mx-auto p-4 pb-28">
+          {/* Mobile Layout: Single Column Stack */}
+          <div className="block lg:hidden space-y-4">
+            {/* Participant Join Interface */}
+            <ParticipantJoin
+              myName={myName}
+              onNameChange={setMyName}
+              onSave={handleSaveName}
+              isSaving={isSavingName}
+              hasJoined={hasJoined}
+              displayName={myRow?.display_name}
+            />
 
-          {/* Grand Total */}
-          <div className="p-4 bg-slate-800/30 border border-slate-600 rounded-xl">
-            <div className="flex justify-between items-center">
-              <span className="text-lg font-medium text-slate-300">Grand Total</span>
-              <span className="text-2xl font-bold text-[var(--neon)]">
-                ${totalAmount}
-              </span>
+            {/* Participants List - Moved above Leaderboard for better mobile UX */}
+            <div className="mobile-participants-list">
+              <ParticipantsList
+                participants={participants}
+                currentDeviceId={myDeviceId}
+                onPlaceBid={handlePlaceBid}
+                onCustomBid={(participantId) => setCustomInput(participantId)}
+                isPlacingBid={isPlacingBid}
+                showCustomInput={showCustomInput}
+                customAmount={customAmount}
+                onCustomAmountChange={updateCustomAmount}
+                onCustomAmountSubmit={handleCustomBidSubmit}
+                onCustomAmountCancel={() => setCustomInput(null)}
+              />
+            </div>
+
+            {/* Leaderboard - Moved below Participants List for mobile */}
+            <div className="mobile-leaderboard">
+              <Leaderboard participants={participants} />
+            </div>
+
+            {/* Bids History */}
+            <BidsHistory sessionCode={code} />
+
+            {/* Grand Total */}
+            <div className="mobile-total p-4 bg-slate-800/30 border border-slate-600 rounded-xl">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-medium text-slate-300">Grand Total</span>
+                <span className="text-2xl font-bold text-[var(--neon)]">
+                  ${totalAmount}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop/Tablet Layout: Multi-Column Grid */}
+          <div className="hidden lg:grid lg:grid-cols-12 lg:gap-6">
+            {/* Left Column: Join + Leaderboard */}
+            <div className="lg:col-span-3 space-y-4">
+              {/* Sticky Join Section */}
+              <div className="sticky top-4">
+                <ParticipantJoin
+                  myName={myName}
+                  onNameChange={setMyName}
+                  onSave={handleSaveName}
+                  isSaving={isSavingName}
+                  hasJoined={hasJoined}
+                  displayName={myRow?.display_name}
+                />
+              </div>
+
+              {/* Leaderboard */}
+              <Leaderboard participants={participants} />
+            </div>
+
+            {/* Center Column: Participants List */}
+            <div className="lg:col-span-6">
+              <ParticipantsList
+                participants={participants}
+                currentDeviceId={myDeviceId}
+                onPlaceBid={handlePlaceBid}
+                onCustomBid={(participantId) => setCustomInput(participantId)}
+                isPlacingBid={isPlacingBid}
+                showCustomInput={showCustomInput}
+                customAmount={customAmount}
+                onCustomAmountChange={updateCustomAmount}
+                onCustomAmountSubmit={handleCustomBidSubmit}
+                onCustomAmountCancel={() => setCustomInput(null)}
+              />
+            </div>
+
+            {/* Right Column: Bids History + Total */}
+            <div className="lg:col-span-3 space-y-4">
+              {/* Sticky Bids History */}
+              <div className="sticky top-4">
+                <BidsHistory sessionCode={code} />
+              </div>
+
+              {/* Grand Total */}
+              <div className="p-4 bg-slate-800/30 border border-slate-600 rounded-xl">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-medium text-slate-300">Grand Total</span>
+                  <span className="text-2xl font-bold text-[var(--neon)]">
+                    ${totalAmount}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tablet Layout: 2-Column Grid */}
+          <div className="hidden md:block lg:hidden">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Left Column: Join + Leaderboard */}
+              <div className="space-y-4">
+                <ParticipantJoin
+                  myName={myName}
+                  onNameChange={setMyName}
+                  onSave={handleSaveName}
+                  isSaving={isSavingName}
+                  hasJoined={hasJoined}
+                  displayName={myRow?.display_name}
+                />
+                <Leaderboard participants={participants} />
+              </div>
+
+              {/* Right Column: Participants + Bids + Total */}
+              <div className="space-y-4">
+                <ParticipantsList
+                  participants={participants}
+                  currentDeviceId={myDeviceId}
+                  onPlaceBid={handlePlaceBid}
+                  onCustomBid={(participantId) => setCustomInput(participantId)}
+                  isPlacingBid={isPlacingBid}
+                  showCustomInput={showCustomInput}
+                  customAmount={customAmount}
+                  onCustomAmountChange={updateCustomAmount}
+                  onCustomAmountSubmit={handleCustomBidSubmit}
+                  onCustomAmountCancel={() => setCustomInput(null)}
+                />
+                <BidsHistory sessionCode={code} />
+                <div className="p-4 bg-slate-800/30 border border-slate-600 rounded-xl">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-medium text-slate-300">Grand Total</span>
+                    <span className="text-2xl font-bold text-[var(--neon)]">
+                      ${totalAmount}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
