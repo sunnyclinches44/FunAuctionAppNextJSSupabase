@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { useSessionStore } from '@/store/useSessionStore'
+import { useSessionStore, Participant, Bid } from '@/store/useSessionStore'
 
 export function useRealTime(sessionId: string | null) {
   const channelRef = useRef<any>(null)
@@ -34,10 +34,10 @@ export function useRealTime(sessionId: string | null) {
           
           switch (payload.eventType) {
             case 'INSERT':
-              addParticipant(payload.new)
+              addParticipant(payload.new as Participant)
               break
             case 'UPDATE':
-              updateParticipant(payload.new)
+              updateParticipant(payload.new as Participant)
               break
             case 'DELETE':
               removeParticipant(payload.old.id)
@@ -57,7 +57,7 @@ export function useRealTime(sessionId: string | null) {
         },
         (payload) => {
           console.log('New bid:', payload)
-          addBid(payload.new)
+          addBid(payload.new as Bid)
           
           // Reload session to get updated amounts - use session code, not session ID
           if (currentSession?.code) {
