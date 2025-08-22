@@ -78,72 +78,111 @@ export default function ModernSessionLayout({
       )}
 
       {/* Main Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
-        {/* Join Section - Enhanced Design */}
-        <div className="mb-8 animate-fade-in-up">
-          <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
-            <div className="text-center mb-6">
-              <div className="flex items-center justify-center space-x-4 mb-4">
-                <div className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl text-amber-300">
-                  <span className="text-lg">🚀</span>
-                  <span className="font-medium">Join the Auction</span>
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-8 pt-24 overflow-x-hidden">
+        {/* Join Section - Enhanced Design - Only show if user hasn't joined */}
+        {!hasJoined && (
+          <div className="mb-8 animate-fade-in-up">
+            <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
+              <div className="text-center mb-6">
+                <div className="flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-4 mb-4">
+                  <div className="inline-flex items-center space-x-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl text-amber-300">
+                    <span className="text-lg">🚀</span>
+                    <span className="font-medium text-sm sm:text-base">Join the Auction</span>
+                  </div>
+                  <div className={`inline-flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-medium ${
+                    rtReady 
+                      ? 'bg-green-500/20 border border-green-500/30 text-green-300' 
+                      : 'bg-slate-500/20 border border-slate-500/30 text-slate-400'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full ${rtReady ? 'bg-green-400' : 'bg-slate-400'} ${rtReady ? 'animate-pulse' : ''}`}></div>
+                    <span>{rtReady ? 'Live' : 'Connecting...'}</span>
+                  </div>
                 </div>
-                <div className={`inline-flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-medium ${
-                  rtReady 
-                    ? 'bg-green-500/20 border border-green-500/30 text-green-300' 
-                    : 'bg-slate-500/20 border border-slate-500/30 text-slate-400'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full ${rtReady ? 'bg-green-400' : 'bg-slate-400'} ${rtReady ? 'animate-pulse' : ''}`}></div>
-                  <span>{rtReady ? 'Live' : 'Connecting...'}</span>
-                </div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-slate-200 mb-2">
+                  Ready to Start Bidding?
+                </h2>
+                <p className="text-slate-400">
+                  Enter your display name and join the excitement!
+                </p>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-slate-200 mb-2">
-                Ready to Start Bidding?
-              </h2>
-              <p className="text-slate-400">
-                Enter your display name and join the excitement!
-              </p>
+              
+              <ParticipantJoin
+                myName={myName}
+                onNameChange={onNameChange}
+                onSave={onSave}
+                isSaving={isSaving}
+                hasJoined={hasJoined}
+                displayName={displayName}
+              />
             </div>
-            
-            <ParticipantJoin
-              myName={myName}
-              onNameChange={onNameChange}
-              onSave={onSave}
-              isSaving={isSaving}
-              hasJoined={hasJoined}
-              displayName={displayName}
-            />
           </div>
-        </div>
+        )}
 
-        {/* Mobile Tab Navigation */}
-        <div className="lg:hidden mb-6">
-          <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-2">
-            <div className="flex space-x-2">
-              {[
-                { key: 'participants', label: 'Participants', icon: '👥' },
-                { key: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
-                { key: 'history', label: 'History', icon: '📜' }
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key as any)}
-                  className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    activeTab === tab.key
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'
-                  }`}
-                >
-                  <span>{tab.icon}</span>
-                  <span>{tab.label}</span>
-                </button>
-              ))}
-            </div>
+        {/* Mobile FAB Navigation */}
+        <div className="lg:hidden fixed bottom-6 right-6 z-40">
+          <div className="flex flex-col space-y-3">
+            {/* Participants FAB */}
+            <button
+              onClick={() => setActiveTab('participants')}
+              className={`w-14 h-14 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-110 ${
+                activeTab === 'participants'
+                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-blue-500/50'
+                  : 'bg-black/40 backdrop-blur-xl border border-white/20 text-slate-300 hover:bg-black/60'
+              }`}
+              title="Participants"
+            >
+              <div className="flex items-center justify-center w-full h-full">
+                <span className="text-xl">👥</span>
+              </div>
+            </button>
+
+            {/* Leaderboard FAB */}
+            <button
+              onClick={() => setActiveTab('leaderboard')}
+              className={`w-14 h-14 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-110 ${
+                activeTab === 'leaderboard'
+                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-yellow-500/50'
+                  : 'bg-black/40 backdrop-blur-xl border border-white/20 text-slate-300 hover:bg-black/60'
+              }`}
+              title="Leaderboard"
+            >
+              <div className="flex items-center justify-center w-full h-full">
+                <span className="text-xl">🏆</span>
+              </div>
+            </button>
+
+            {/* History FAB */}
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`w-14 h-14 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-110 ${
+                activeTab === 'history'
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-purple-500/50'
+                  : 'bg-black/40 backdrop-blur-xl border border-white/20 text-slate-300 hover:bg-black/60'
+              }`}
+              title="Bid History"
+            >
+              <div className="flex items-center justify-center w-full h-full">
+                <span className="text-xl">📜</span>
+              </div>
+            </button>
           </div>
         </div>
 
         {/* Mobile Content */}
-        <div className="lg:hidden space-y-6">
+        <div className="lg:hidden space-y-6 pb-32">
+          {/* Active Section Indicator */}
+          <div className="text-center mb-4">
+            <div className="inline-flex items-center space-x-2 px-4 py-2 bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl">
+              <span className="text-lg">
+                {activeTab === 'participants' && '👥'}
+                {activeTab === 'leaderboard' && '🏆'}
+                {activeTab === 'history' && '📜'}
+              </span>
+              <span className="text-sm font-medium text-slate-300 capitalize">
+                {activeTab}
+              </span>
+            </div>
+          </div>
           {/* Participants Tab */}
           {activeTab === 'participants' && (
             <div className="animate-fade-in-up">
