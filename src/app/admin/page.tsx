@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import ModernAdminLayout from '@/components/admin/ModernAdminLayout'
+import Navigation from '@/components/Navigation'
+import ModernFooter from '@/components/ModernFooter'
 
 interface Session {
   id: string
@@ -68,172 +71,7 @@ function SignInCard({ onDone }: { onDone?: () => void }) {
   )
 }
 
-function SessionsList({ sessions, onDelete, onDeleteParticipant, onLoadParticipants }: { 
-  sessions: Session[], 
-  onDelete: (sessionId: string) => void,
-  onDeleteParticipant: (participantId: string, sessionId: string) => void,
-  onLoadParticipants: (sessionId: string) => Promise<Participant[]>
-}) {
-  const [deleting, setDeleting] = useState<string | null>(null)
-  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
-  const [participants, setParticipants] = useState<Record<string, Participant[]>>({})
-  const [loadingParticipants, setLoadingParticipants] = useState<Set<string>>(new Set())
 
-  const handleDelete = async (sessionId: string) => {
-    if (!confirm('Are you sure you want to delete this session? This will permanently remove all session data, participants, and bids.')) {
-      return
-    }
-
-    setDeleting(sessionId)
-    try {
-      onDelete(sessionId)
-    } finally {
-      setDeleting(null)
-    }
-  }
-
-  const handleDeleteParticipant = async (participantId: string, sessionId: string, participantName: string) => {
-            if (!confirm(`Are you sure you want to delete participant "${participantName}"? This will remove all their bids.`)) {
-      return
-    }
-
-    try {
-      await onDeleteParticipant(participantId, sessionId)
-      // Remove participant from local state
-      setParticipants(prev => ({
-        ...prev,
-        [sessionId]: prev[sessionId]?.filter(p => p.id !== participantId) || []
-      }))
-      
-      // Also refresh the participants list to ensure consistency
-      const updatedParticipants = await onLoadParticipants(sessionId)
-      setParticipants(prev => ({ ...prev, [sessionId]: updatedParticipants }))
-      
-    } catch (error) {
-      console.error('Error deleting participant:', error)
-    }
-  }
-
-  const toggleSessionExpansion = async (sessionId: string) => {
-    const newExpanded = new Set(expandedSessions)
-    
-    if (newExpanded.has(sessionId)) {
-      newExpanded.delete(sessionId)
-    } else {
-      newExpanded.add(sessionId)
-      // Load participants if not already loaded
-      if (!participants[sessionId]) {
-        setLoadingParticipants(prev => new Set(prev).add(sessionId))
-        try {
-          const sessionParticipants = await onLoadParticipants(sessionId)
-          setParticipants(prev => ({ ...prev, [sessionId]: sessionParticipants }))
-        } finally {
-          setLoadingParticipants(prev => {
-            const newSet = new Set(prev)
-            newSet.delete(sessionId)
-            return newSet
-          })
-        }
-      }
-    }
-    
-    setExpandedSessions(newExpanded)
-  }
-
-  if (sessions.length === 0) {
-    return (
-      <div className="text-center text-slate-400 py-8">
-        No active sessions found.
-      </div>
-    )
-  }
-
-  return (
-    <div className="w-full max-w-4xl">
-      <h3 className="text-xl font-semibold mb-4">Active Sessions</h3>
-      <div className="grid gap-4">
-        {sessions.map((session) => {
-          const isExpanded = expandedSessions.has(session.id)
-          const sessionParticipants = participants[session.id] || []
-          const isLoadingParticipants = loadingParticipants.has(session.id)
-          
-          return (
-            <div key={session.id} className="card p-4 border border-[var(--border)]">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h4 className="text-lg font-medium">{session.title || 'Untitled Session'}</h4>
-                    <span className="text-sm bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
-                      {session.code}
-                    </span>
-                  </div>
-                  <div className="text-sm text-slate-400 space-y-1">
-                    <div>Created: {new Date(session.created_at).toLocaleDateString()}</div>
-                    <div>Participants: {session.participant_count}</div>
-                    <div>Total Amount: ₹{session.total_amount}</div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => toggleSessionExpansion(session.id)}
-                    className="btn btn-ghost btn-sm"
-                  >
-                    {isExpanded ? 'Hide Details' : 'View Details'}
-                  </button>
-                  <button
-                    onClick={() => window.open(`/s/${session.code}`, '_blank')}
-                    className="btn btn-ghost btn-sm"
-                  >
-                    View
-                  </button>
-                  <button
-                    onClick={() => handleDelete(session.id)}
-                    disabled={deleting === session.id}
-                    className="btn btn-error btn-sm"
-                  >
-                    {deleting === session.id ? 'Deleting...' : 'Delete'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Expanded participant details */}
-              {isExpanded && (
-                <div className="mt-4 pt-4 border-t border-[var(--border)]">
-                  <h5 className="text-md font-semibold mb-3 text-slate-300">Participants</h5>
-                  
-                  {isLoadingParticipants ? (
-                    <div className="text-center py-4 text-slate-400">Loading participants...</div>
-                  ) : sessionParticipants.length === 0 ? (
-                    <div className="text-center py-4 text-slate-400">No participants yet</div>
-                  ) : (
-                    <div className="space-y-2">
-                      {sessionParticipants.map((participant) => (
-                        <div key={participant.id} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
-                          <div className="flex-1">
-                            <div className="font-medium text-slate-200">{participant.display_name}</div>
-                            <div className="text-sm text-slate-400">
-                              Amount: ₹{participant.amount} • Joined: {new Date(participant.created_at).toLocaleString()}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleDeleteParticipant(participant.id, session.id, participant.display_name)}
-                            className="btn btn-error btn-xs"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 export default function AdminPage() {
   const router = useRouter()
@@ -454,74 +292,107 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center gap-6 p-4">
-      <header className="text-center mb-2">
-        <h1 className="text-3xl sm:text-4xl font-extrabold grand">
-          🔐 Admin Panel
-        </h1>
-        <p className="text-slate-400 mt-1">Manage auction sessions</p>
-      </header>
-
-      {/* Buttons row */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        {/* Only for signed-in admin */}
-        {authed && (
-          <button
-            onClick={() => router.push('/create')}
-            className="btn btn-primary px-6 py-3"
-          >
-            Create Session
-          </button>
-        )}
-        
-        {/* Back to home */}
-        <button
-          onClick={() => router.push('/')}
-          className="btn btn-ghost px-6 py-3"
-        >
-          Back to Home
-        </button>
+    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <Navigation />
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-amber-400/10 to-orange-500/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute bottom-20 right-10 w-40 h-40 bg-gradient-to-br from-blue-400/10 to-cyan-500/10 rounded-full blur-3xl animate-float" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-green-400/5 to-emerald-500/5 rounded-full blur-3xl animate-float" style={{animationDelay: '2s'}}></div>
       </div>
 
-      {/* Sessions list - only show when authenticated */}
-      {authed && (
-        <div className="w-full flex justify-center">
-          {loading ? (
-            <div className="text-center text-slate-400 py-8">
-              Loading sessions...
-            </div>
-          ) : (
-            <SessionsList 
-              sessions={sessions} 
-              onDelete={deleteSession} 
-              onDeleteParticipant={deleteParticipant} 
-              onLoadParticipants={loadParticipants}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Auth controls */}
-      <div className="mt-2">
+      {/* Main Content */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        {/* Auth Section */}
         {!authed ? (
-          <button className="btn btn-ghost px-4 py-2" onClick={() => setShowLogin((s) => !s)}>
-            {showLogin ? 'Close Login' : 'Admin Login'}
-          </button>
+          <div className="text-center py-16">
+            <div className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-2xl text-blue-300 mb-6">
+              <span className="text-lg">🔐</span>
+              <span className="font-medium">Admin Authentication</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-200 mb-4">
+              Access the
+              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
+                Admin Panel
+              </span>
+            </h1>
+            <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-8">
+              Sign in to manage your auction sessions, participants, and monitor real-time activity
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
+              <button 
+                className="btn btn-primary px-6 py-3 text-lg font-semibold"
+                onClick={() => setShowLogin((s) => !s)}
+              >
+                {showLogin ? 'Close Login' : '🔐 Admin Login'}
+              </button>
+              
+              <button
+                onClick={() => router.push('/')}
+                className="btn btn-ghost px-6 py-3 text-lg font-semibold"
+              >
+                🏠 Back to Home
+              </button>
+            </div>
+
+            {/* Login Card */}
+            {showLogin && (
+              <div className="max-w-md mx-auto animate-fade-in-up">
+                <SignInCard onDone={() => setShowLogin(false)} />
+              </div>
+            )}
+          </div>
         ) : (
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-300">{email}</span>
-            <button className="btn btn-ghost px-4 py-2" onClick={signOut}>
-              Sign out
-            </button>
+          /* Authenticated Admin View */
+          <div className="animate-fade-in-up">
+            {/* Header with Auth Info */}
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center text-xl">
+                  ✅
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-200">Signed in as</h2>
+                  <p className="text-lg text-green-400 font-medium">{email}</p>
+                </div>
+              </div>
+              
+              <button 
+                className="btn btn-ghost px-4 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                onClick={signOut}
+              >
+                🚪 Sign Out
+              </button>
+            </div>
+
+            {/* Modern Admin Layout */}
+            {loading ? (
+              <div className="text-center py-16">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-400 mx-auto mb-4"></div>
+                <p className="text-slate-400 text-lg">Loading sessions...</p>
+              </div>
+            ) : (
+              <ModernAdminLayout
+                sessions={sessions}
+                onDelete={deleteSession}
+                onDeleteParticipant={deleteParticipant}
+                onLoadParticipants={loadParticipants}
+                onCreateSession={() => router.push('/create')}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Small hint while auth state loads on first paint */}
+        {!ready && (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-400 mx-auto mb-2"></div>
+            <p className="text-slate-400">Checking sign-in status...</p>
           </div>
         )}
       </div>
-
-      {/* Inline login card (only when requested and not authed) */}
-      {!authed && showLogin && <SignInCard onDone={() => setShowLogin(false)} />}
-
-      {/* Small hint while auth state loads on first paint */}
-      {!ready && <div className="text-xs text-slate-500">Checking sign-in…</div>}
+      <ModernFooter />
     </main>
   )
 }

@@ -11,7 +11,6 @@ export default function Navigation() {
     { label: 'Home', path: '/', icon: '🏠' },
     { label: 'Join Session', path: '/join', icon: '🚀' },
     { label: 'Create Session', path: '/create', icon: '✨' },
-    { label: 'Admin Panel', path: '/admin', icon: '⚙️' },
   ]
 
   return (
@@ -20,9 +19,12 @@ export default function Navigation() {
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo */}
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center text-lg sm:text-xl font-bold text-white shadow-lg">
+            <button
+              onClick={() => router.push('/')}
+              className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center text-lg sm:text-xl font-bold text-white shadow-lg hover:scale-105 transition-transform duration-200 cursor-pointer"
+            >
               🙏
-            </div>
+            </button>
             <span className="text-xl sm:text-2xl font-bold grand hidden sm:block">Fun Auction</span>
           </div>
 

@@ -6,14 +6,11 @@ import { getOrCreateDeviceId, getDisplayName, saveDisplayName } from '@/lib/util
 import { useSessionStore, useCurrentSession, useParticipants, useTotalAmount, useIsLoading, useError, useRtReady } from '@/store/useSessionStore'
 import { useRealTime } from '@/hooks/useRealTime'
 import { useBidding } from '@/hooks/useBidding'
-import SessionHeader from '@/components/session/SessionHeader'
-import ParticipantJoin from '@/components/session/ParticipantJoin'
-import ParticipantsList from '@/components/session/ParticipantsList'
-import Leaderboard from '@/components/session/Leaderboard'
-import BidsHistory from '@/components/BidsHistory'
+import ModernSessionLayout from '@/components/session/ModernSessionLayout'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import ErrorBoundary from '@/components/ErrorBoundary'
-import AchievementToast from '@/components/ui/AchievementToast'
+import Navigation from '@/components/Navigation'
+import ModernFooter from '@/components/ModernFooter'
 
 export default function SessionRoom() {
   const { code } = useParams<{ code: string }>()
@@ -155,19 +152,22 @@ export default function SessionRoom() {
 
   if (isLoading) {
     return (
-      <main className="relative z-10">
-        <div className="text-center py-8">
+      <main className="min-h-screen">
+        <Navigation />
+        <div className="text-center py-8 pt-24">
           <LoadingSpinner size="lg" className="mx-auto mb-4" />
           <p className="text-slate-400">Loading session...</p>
         </div>
+        <ModernFooter />
       </main>
     )
   }
 
   if (error) {
     return (
-      <main className="relative z-10">
-        <div className="text-center py-8">
+      <main className="min-h-screen">
+        <Navigation />
+        <div className="text-center py-8 pt-24">
           <div className="text-6xl mb-4">⚠️</div>
           <h2 className="text-xl font-semibold text-red-400 mb-2">Error Loading Session</h2>
           <p className="text-red-300 mb-4">{error}</p>
@@ -178,219 +178,41 @@ export default function SessionRoom() {
             Try Again
           </button>
         </div>
+        <ModernFooter />
       </main>
     )
   }
 
   return (
-    <ErrorBoundary>
-      <main className="relative z-10">
-        <SessionHeader title={session?.title} rtReady={rtReady} />
-
-        {/* Achievement Toast */}
-        {achievementToast && (
-          <AchievementToast
-            message={achievementToast.message}
-            type={achievementToast.type}
-            onClose={() => setAchievementToast(null)}
-            duration={5000}
-          />
-        )}
-
-        {/* Floating Action Button for Mobile */}
-        <div className="fixed bottom-6 right-6 lg:hidden z-40">
-          <div className="flex flex-col gap-3">
-            {/* Quick Participants List Access - Now the primary action */}
-            <button
-              onClick={() => {
-                const participantsList = document.querySelector('.mobile-participants-list')
-                if (participantsList) {
-                  participantsList.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                }
-              }}
-              className="btn btn-primary w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-2xl"
-              title="View Participants & Bid"
-            >
-              👥
-            </button>
-            
-            {/* Quick Leaderboard Access */}
-            <button
-              onClick={() => {
-                const leaderboard = document.querySelector('.mobile-leaderboard')
-                if (leaderboard) {
-                  leaderboard.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                }
-              }}
-              className="btn bg-slate-600 hover:bg-slate-700 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-xl font-bold"
-              title="View Leaderboard"
-            >
-              🏆
-            </button>
-            
-            {/* Quick Total Access */}
-            <button
-              onClick={() => {
-                const total = document.querySelector('.mobile-total')
-                if (total) {
-                  total.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                }
-              }}
-              className="btn bg-slate-600 hover:bg-slate-700 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-xl font-bold"
-              title="View Total"
-            >
-              $
-            </button>
-          </div>
-        </div>
-
-        <section className="max-w-7xl mx-auto p-4 pb-28">
-          {/* Mobile Layout: Single Column Stack */}
-          <div className="block lg:hidden space-y-4">
-            {/* Participant Join Interface */}
-            <ParticipantJoin
-              myName={myName}
-              onNameChange={setMyName}
-              onSave={handleSaveName}
-              isSaving={isSavingName}
-              hasJoined={hasJoined}
-              displayName={myRow?.display_name}
-            />
-
-            {/* Participants List - Moved above Leaderboard for better mobile UX */}
-            <div className="mobile-participants-list">
-              <ParticipantsList
-                participants={participants}
-                currentDeviceId={myDeviceId}
-                onPlaceBid={handlePlaceBid}
-                onCustomBid={(participantId) => setCustomInput(participantId)}
-                isPlacingBid={isPlacingBid}
-                showCustomInput={showCustomInput}
-                customAmount={customAmount}
-                onCustomAmountChange={updateCustomAmount}
-                onCustomAmountSubmit={handleCustomBidSubmit}
-                onCustomAmountCancel={() => setCustomInput(null)}
-              />
-            </div>
-
-            {/* Leaderboard - Moved below Participants List for mobile */}
-            <div className="mobile-leaderboard">
-              <Leaderboard participants={participants} />
-            </div>
-
-            {/* Bids History */}
-            <BidsHistory sessionCode={code} />
-
-            {/* Grand Total */}
-            <div className="mobile-total p-4 bg-slate-800/30 border border-slate-600 rounded-xl">
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-medium text-slate-300">Grand Total</span>
-                <span className="text-2xl font-bold text-[var(--neon)]">
-                  ${totalAmount}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Desktop/Tablet Layout: Multi-Column Grid */}
-          <div className="hidden lg:grid lg:grid-cols-12 lg:gap-6">
-            {/* Left Column: Join + Leaderboard */}
-            <div className="lg:col-span-3 space-y-4">
-              {/* Sticky Join Section */}
-              <div className="sticky top-4">
-                <ParticipantJoin
-                  myName={myName}
-                  onNameChange={setMyName}
-                  onSave={handleSaveName}
-                  isSaving={isSavingName}
-                  hasJoined={hasJoined}
-                  displayName={myRow?.display_name}
-                />
-              </div>
-
-              {/* Leaderboard */}
-              <Leaderboard participants={participants} />
-            </div>
-
-            {/* Center Column: Participants List */}
-            <div className="lg:col-span-6">
-              <ParticipantsList
-                participants={participants}
-                currentDeviceId={myDeviceId}
-                onPlaceBid={handlePlaceBid}
-                onCustomBid={(participantId) => setCustomInput(participantId)}
-                isPlacingBid={isPlacingBid}
-                showCustomInput={showCustomInput}
-                customAmount={customAmount}
-                onCustomAmountChange={updateCustomAmount}
-                onCustomAmountSubmit={handleCustomBidSubmit}
-                onCustomAmountCancel={() => setCustomInput(null)}
-              />
-            </div>
-
-            {/* Right Column: Bids History + Total */}
-            <div className="lg:col-span-3 space-y-4">
-              {/* Sticky Bids History */}
-              <div className="sticky top-4">
-                <BidsHistory sessionCode={code} />
-              </div>
-
-              {/* Grand Total */}
-              <div className="p-4 bg-slate-800/30 border border-slate-600 rounded-xl">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-medium text-slate-300">Grand Total</span>
-                  <span className="text-2xl font-bold text-[var(--neon)]">
-                    ${totalAmount}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tablet Layout: 2-Column Grid */}
-          <div className="hidden md:block lg:hidden">
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Left Column: Join + Leaderboard */}
-              <div className="space-y-4">
-                <ParticipantJoin
-                  myName={myName}
-                  onNameChange={setMyName}
-                  onSave={handleSaveName}
-                  isSaving={isSavingName}
-                  hasJoined={hasJoined}
-                  displayName={myRow?.display_name}
-                />
-                <Leaderboard participants={participants} />
-              </div>
-
-              {/* Right Column: Participants + Bids + Total */}
-              <div className="space-y-4">
-                <ParticipantsList
-                  participants={participants}
-                  currentDeviceId={myDeviceId}
-                  onPlaceBid={handlePlaceBid}
-                  onCustomBid={(participantId) => setCustomInput(participantId)}
-                  isPlacingBid={isPlacingBid}
-                  showCustomInput={showCustomInput}
-                  customAmount={customAmount}
-                  onCustomAmountChange={updateCustomAmount}
-                  onCustomAmountSubmit={handleCustomBidSubmit}
-                  onCustomAmountCancel={() => setCustomInput(null)}
-                />
-                <BidsHistory sessionCode={code} />
-                <div className="p-4 bg-slate-800/30 border border-slate-600 rounded-xl">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-medium text-slate-300">Grand Total</span>
-                    <span className="text-2xl font-bold text-[var(--neon)]">
-                      ${totalAmount}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-    </ErrorBoundary>
+    <main className="min-h-screen">
+      <Navigation />
+      <ErrorBoundary>
+        <ModernSessionLayout
+          session={session}
+          rtReady={rtReady}
+          participants={participants}
+          myDeviceId={myDeviceId}
+          myName={myName}
+          onNameChange={setMyName}
+          onSave={handleSaveName}
+          isSaving={isSavingName}
+          hasJoined={hasJoined}
+          displayName={myRow?.display_name}
+          onPlaceBid={handlePlaceBid}
+          onCustomBid={(participantId: string) => setCustomInput(participantId)}
+          isPlacingBid={isPlacingBid}
+          showCustomInput={showCustomInput}
+          customAmount={customAmount}
+          onCustomAmountChange={updateCustomAmount}
+          onCustomAmountSubmit={handleCustomBidSubmit}
+          onCustomAmountCancel={() => setCustomInput(null)}
+          totalAmount={totalAmount}
+          sessionCode={code}
+          achievementToast={achievementToast}
+          onCloseToast={() => setAchievementToast(null)}
+        />
+      </ErrorBoundary>
+      <ModernFooter />
+    </main>
   )
 }
