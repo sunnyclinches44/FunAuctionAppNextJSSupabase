@@ -36,16 +36,85 @@ body::before {
   @apply border rounded-2xl shadow-xl backdrop-blur-md;
   background: var(--card);
   border-color: var(--border);
+  transition: all 0.3s ease;
 }
+
+.card:hover {
+  border-color: rgba(255, 145, 0, 0.3);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
 .btn {
-  @apply rounded-full font-semibold transition-[box-shadow,transform] duration-200;
+  @apply rounded-full font-semibold transition-[box-shadow,transform,background] duration-200;
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
+
 .btn:active { transform: translateY(1px); }
+
 .btn-primary {
   @apply text-neutral-900 bg-gradient-to-b from-amber-200 to-[var(--neon)] shadow-neon hover:shadow-neonHover;
 }
-.btn-ghost { @apply bg-white/5 border border-[var(--border)] text-slate-100; }
+
+.btn-ghost { 
+  @apply bg-white/5 border border-[var(--border)] text-slate-100; 
+}
+
+.btn-ghost:hover:not(:disabled) { 
+  @apply bg-white/10 border-amber-500/30; 
+}
+
+.btn-ghost:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+/* Homepage specific enhancements */
+.feature-card {
+  @apply relative overflow-hidden;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 145, 0, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.feature-card:hover::before {
+  left: 100%;
+}
+
+/* Enhanced animations for homepage elements */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
 
 /* table */
 .tbl th { @apply text-left text-sm text-slate-400 px-2; }
@@ -456,4 +525,95 @@ html {
 @keyframes border-shine {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .card {
+    @apply rounded-xl;
+  }
+  
+  .btn {
+    @apply text-sm px-6 py-3;
+  }
+}
+
+/* Enhanced mobile responsiveness */
+@media (max-width: 640px) {
+  .card {
+    @apply rounded-lg;
+  }
+  
+  .btn {
+    @apply text-xs px-4 py-2;
+  }
+  
+  /* Reduce padding on mobile */
+  .p-8 {
+    padding: 1rem;
+  }
+  
+  .p-6 {
+    padding: 0.75rem;
+  }
+  
+  .p-5 {
+    padding: 0.625rem;
+  }
+  
+  .p-4 {
+    padding: 0.5rem;
+  }
+  
+  /* Adjust margins for mobile */
+  .mb-16 {
+    margin-bottom: 2rem;
+  }
+  
+  .mb-12 {
+    margin-bottom: 1.5rem;
+  }
+  
+  .mb-10 {
+    margin-bottom: 1.25rem;
+  }
+  
+  .mb-8 {
+    margin-bottom: 1rem;
+  }
+  
+  /* Responsive grid gaps */
+  .gap-8 {
+    gap: 1rem;
+  }
+  
+  .gap-6 {
+    gap: 0.75rem;
+  }
+  
+  .gap-4 {
+    gap: 0.5rem;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .card {
+    @apply rounded-2xl;
+  }
+  
+  .btn {
+    @apply text-sm px-6 py-3;
+  }
+}
+
+/* Large screen optimizations */
+@media (min-width: 1025px) {
+  .card {
+    @apply rounded-3xl;
+  }
+  
+  .btn {
+    @apply text-base px-8 py-4;
+  }
 }
