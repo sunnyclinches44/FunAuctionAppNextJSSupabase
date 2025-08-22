@@ -119,6 +119,9 @@ export default function HeroSection() {
           </div>
         </div>
       </div>
+      
+      {/* Bottom Border Separator - Subtle gradient line */}
+      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent"></div>
     </section>
   )
 }

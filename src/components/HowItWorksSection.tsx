@@ -30,6 +30,9 @@ export default function HowItWorksSection() {
 
   return (
     <section className="py-20 px-4 relative overflow-hidden">
+      {/* Top Border Separator - Subtle gradient line */}
+      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent"></div>
+      
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-0 w-64 h-64 bg-gradient-to-br from-blue-400/5 to-cyan-500/5 rounded-full blur-3xl"></div>
@@ -39,7 +42,7 @@ export default function HowItWorksSection() {
       <div className="max-w-7xl mx-auto relative z-10">
         {/* Section Header */}
         <div className="text-center mb-20 animate-fade-in-up">
-          <div className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-2xl text-green-300 mb-6">
+          <div className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-2xl text-green-300 mb-6 shadow-inner shadow-green-500/10">
             <span className="text-lg">🎯</span>
             <span className="font-medium">How It Works</span>
           </div>
@@ -62,20 +65,15 @@ export default function HowItWorksSection() {
               className="relative animate-fade-in-up group"
               style={{animationDelay: step.delay}}
             >
-              {/* Connection Line */}
-              {index < steps.length - 1 && (
-                <div className="hidden lg:block absolute top-1/2 left-full w-full h-0.5 bg-gradient-to-r from-slate-600 to-slate-400 transform -translate-y-1/2 z-0"></div>
-              )}
-
               {/* Step Card */}
-              <div className="relative h-full p-8 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 text-center group-hover:border-white/20">
+              <div className="relative h-full p-8 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 text-center group-hover:border-white/20 shadow-inner shadow-slate-900/20">
                 {/* Step Number */}
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 w-12 h-12 bg-gradient-to-br from-slate-700 to-slate-800 rounded-full flex items-center justify-center text-sm font-bold text-white border-2 border-white/20 shadow-lg">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 w-12 h-12 bg-gradient-to-br from-slate-700 to-slate-800 rounded-full flex items-center justify-center text-sm font-bold text-white border-2 border-white/20 shadow-lg shadow-inner shadow-slate-900/30">
                   {step.number}
                 </div>
 
                 {/* Icon */}
-                <div className={`w-20 h-20 bg-gradient-to-br ${step.gradient} rounded-3xl flex items-center justify-center text-3xl mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                <div className={`w-20 h-20 bg-gradient-to-br ${step.gradient} rounded-3xl flex items-center justify-center text-3xl mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300 shadow-inner shadow-black/20`}>
                   {step.icon}
                 </div>
 
@@ -96,12 +94,15 @@ export default function HowItWorksSection() {
 
         {/* Bottom CTA */}
         <div className="text-center mt-20 animate-fade-in-up" style={{animationDelay: '0.4s'}}>
-          <div className="inline-flex items-center space-x-2 px-8 py-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl text-amber-300">
+          <div className="inline-flex items-center space-x-2 px-8 py-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl text-amber-300 shadow-inner shadow-amber-500/10">
             <span className="text-lg">🎉</span>
             <span className="font-medium">Ready to experience the thrill?</span>
           </div>
         </div>
       </div>
+      
+      {/* Bottom Border Separator - Subtle gradient line */}
+      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent"></div>
     </section>
   )
 }

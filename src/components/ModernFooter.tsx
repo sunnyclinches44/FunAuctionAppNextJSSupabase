@@ -1,9 +1,16 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 export default function ModernFooter() {
   const router = useRouter()
+  const pathname = usePathname()
+  
+  // Check if user is in a session
+  const isInSession = pathname?.startsWith('/s/')
+  const isAdminPage = pathname === '/admin'
+  const isCreatePage = pathname === '/create'
+  const isJoinPage = pathname === '/join'
 
   // Type for footer links
   type FooterLink = { label: string; path?: string; icon: string }
@@ -38,6 +45,101 @@ export default function ModernFooter() {
     }
   ]
 
+  // Get appropriate CTA buttons based on context
+  const getCTAButtons = () => {
+    if (isInSession) {
+      // User is in a session - show session-related actions
+      return (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => router.push('/')}
+            className="btn btn-primary px-6 py-3 text-sm font-semibold w-full sm:w-auto"
+          >
+            🏠 Back to Home
+          </button>
+          <button
+            onClick={() => router.push('/join')}
+            className="btn btn-ghost px-6 py-3 text-sm font-semibold w-full sm:w-auto"
+          >
+            🔄 Join Another Session
+          </button>
+        </div>
+      )
+    } else if (isAdminPage) {
+      // User is on admin page
+      return (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => router.push('/')}
+            className="btn btn-primary px-6 py-3 text-sm font-semibold w-full sm:w-auto"
+          >
+            🏠 Back to Home
+          </button>
+          <button
+            onClick={() => router.push('/create')}
+            className="btn btn-ghost px-6 py-3 text-sm font-semibold w-full sm:w-auto"
+          >
+            ✨ Create New Session
+          </button>
+        </div>
+      )
+    } else if (isCreatePage) {
+      // User is on create page
+      return (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => router.push('/')}
+            className="btn btn-primary px-6 py-3 text-sm font-semibold w-full sm:w-auto"
+          >
+            🏠 Back to Home
+          </button>
+          <button
+            onClick={() => router.push('/join')}
+            className="btn btn-ghost px-6 py-3 text-sm font-semibold w-full sm:w-auto"
+          >
+            🚀 Join Session
+          </button>
+        </div>
+      )
+    } else if (isJoinPage) {
+      // User is on join page
+      return (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => router.push('/')}
+            className="btn btn-primary px-6 py-3 text-sm font-semibold w-full sm:w-auto"
+          >
+            🏠 Back to Home
+          </button>
+          <button
+            onClick={() => router.push('/create')}
+            className="btn btn-ghost px-6 py-3 text-sm font-semibold w-full sm:w-auto"
+          >
+            ✨ Create Session
+          </button>
+        </div>
+      )
+    } else {
+      // User is on home page - show default CTAs
+      return (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => router.push('/join')}
+            className="btn btn-primary px-6 py-3 text-sm font-semibold w-full sm:w-auto"
+          >
+            Join Now
+          </button>
+          <button
+            onClick={() => router.push('/admin')}
+            className="btn btn-ghost px-6 py-3 text-sm font-semibold w-full sm:w-auto"
+          >
+            Admin Panel
+          </button>
+        </div>
+      )
+    }
+  }
+
   return (
     <footer className="relative border-t border-white/10 bg-black/20 backdrop-blur-xl">
       {/* Background decorative elements */}
@@ -57,23 +159,12 @@ export default function ModernFooter() {
               <h3 className="text-2xl font-bold grand">Fun Auction</h3>
             </div>
             <p className="text-slate-400 mb-6 max-w-md text-sm leading-relaxed">
-              Experience the thrill of real-time bidding in a fun, devotional atmosphere. 
-              No registration required, mobile-optimized, and instant participation.
+              {isInSession 
+                ? "You're currently in an active auction session. Enjoy the real-time bidding experience!"
+                : "Experience the thrill of real-time bidding in a fun, devotional atmosphere. No registration required, mobile-optimized, and instant participation."
+              }
             </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => router.push('/join')}
-                className="btn btn-primary px-6 py-3 text-sm font-semibold w-full sm:w-auto"
-              >
-                Join Now
-              </button>
-              <button
-                onClick={() => router.push('/admin')}
-                className="btn btn-ghost px-6 py-3 text-sm font-semibold w-full sm:w-auto"
-              >
-                Admin Panel
-              </button>
-            </div>
+            {getCTAButtons()}
           </div>
 
           {/* Footer Sections */}

@@ -53,11 +53,14 @@ export default function FeaturesSection() {
   ]
 
   return (
-    <section className="py-20 px-4">
+    <section className="py-20 px-4 relative">
+      {/* Top Border Separator - Subtle gradient line */}
+      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent"></div>
+      
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-16 animate-fade-in-up">
-          <div className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-2xl text-blue-300 mb-6">
+          <div className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-2xl text-blue-300 mb-6 shadow-inner shadow-blue-500/10">
             <span className="text-lg">✨</span>
             <span className="font-medium">Key Features</span>
           </div>
@@ -81,20 +84,20 @@ export default function FeaturesSection() {
               style={{animationDelay: feature.delay}}
             >
               {/* Card */}
-              <div className="relative h-full p-6 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 overflow-hidden">
+              <div className="relative h-full p-6 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 overflow-hidden shadow-inner shadow-slate-900/20">
                 {/* Background gradient on hover */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-500`}></div>
                 
                 {/* Icon */}
-                <div className={`relative z-10 w-16 h-16 bg-gradient-to-br ${feature.gradient} rounded-2xl flex items-center justify-center text-2xl shadow-lg mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                <div className={`relative z-10 w-16 h-16 bg-gradient-to-br ${feature.gradient} rounded-2xl flex items-center justify-center text-2xl shadow-lg mb-6 group-hover:scale-110 transition-transform duration-300 shadow-inner shadow-black/20`}>
                   {feature.icon}
                 </div>
 
                 {/* Badge */}
                 <div className={`absolute top-4 right-4 px-2 py-1 rounded-full text-xs font-medium ${
                   feature.badge === 'Free' 
-                    ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
-                    : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                    ? 'bg-green-500/20 text-green-300 border border-green-500/30 shadow-inner shadow-green-500/10' 
+                    : 'bg-blue-500/20 text-blue-300 border border-blue-500/30 shadow-inner shadow-blue-500/10'
                 }`}>
                   {feature.badge}
                 </div>
@@ -118,12 +121,15 @@ export default function FeaturesSection() {
 
         {/* Bottom CTA */}
         <div className="text-center mt-16 animate-fade-in-up" style={{animationDelay: '0.7s'}}>
-          <div className="inline-flex items-center space-x-2 px-8 py-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl text-amber-300">
+          <div className="inline-flex items-center space-x-2 px-8 py-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl text-amber-300 shadow-inner shadow-amber-500/10">
             <span className="text-lg">🎯</span>
             <span className="font-medium">Ready to start bidding?</span>
           </div>
         </div>
       </div>
+      
+      {/* Bottom Border Separator - Subtle gradient line */}
+      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent"></div>
     </section>
   )
 }
