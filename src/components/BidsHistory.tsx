@@ -15,9 +15,9 @@ interface RawBidData {
   id: string
   delta: number
   created_at: string
-  participants: {
+  participants?: {
     display_name: string
-  }[]
+  }
 }
 
 interface BidsHistoryProps {
@@ -57,7 +57,7 @@ export default function BidsHistory({ sessionCode }: BidsHistoryProps) {
           id,
           delta,
           created_at,
-          participants!inner(display_name)
+          participants(display_name)
         `)
         .eq('session_id', currentSessionId)
         .order('created_at', { ascending: false })
@@ -68,10 +68,12 @@ export default function BidsHistory({ sessionCode }: BidsHistoryProps) {
         return
       }
 
+      console.log('Raw bid data received:', JSON.stringify(data, null, 2))
+
       // Transform data to match our interface
-      const transformedBids: Bid[] = (data as RawBidData[]).map(bid => ({
+      const transformedBids: Bid[] = (data as any[]).map(bid => ({
         id: bid.id,
-        participant_name: bid.participants[0].display_name, // Assuming only one participant for simplicity
+        participant_name: bid.participants?.display_name || 'Unknown Participant',
         amount: bid.delta,
         created_at: bid.created_at
       }))
