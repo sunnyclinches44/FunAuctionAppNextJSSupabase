@@ -62,12 +62,13 @@ export default function HeroSection() {
             <span className="text-blue-400 font-semibold"> real-time excitement</span>
           </p>
           <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto">
-            No registration required • Mobile-optimized • Instant access
+            Join sessions instantly • Create sessions with sign-up • Mobile-optimized
           </p>
         </header>
 
         {/* Call to Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16 animate-fade-in-up" style={{animationDelay: '0.4s'}}>
+          {/* Primary CTA - Join Session (No Auth Required) */}
           <button
             onClick={() => router.push('/join')}
             className="group relative px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-lg rounded-2xl shadow-2xl hover:shadow-amber-500/25 transition-all duration-300 hover:scale-105 hover:-translate-y-1"
@@ -80,15 +81,25 @@ export default function HeroSection() {
             <div className="absolute inset-0 bg-gradient-to-r from-amber-600 to-orange-600 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           </button>
           
-          <button
-            onClick={() => router.push('/create')}
-            className="px-8 py-4 bg-white/10 border border-white/20 text-white font-semibold text-lg rounded-2xl hover:bg-white/20 hover:border-white/30 transition-all duration-300 hover:scale-105 hover:-translate-y-1 backdrop-blur-sm"
-          >
-            <span className="flex items-center space-x-2">
-              <span>✨</span>
-              <span>Create Session</span>
-            </span>
-          </button>
+          {/* Secondary CTA - Create Session (Requires Auth) */}
+          <div className="relative group">
+            <button
+              onClick={() => router.push('/create')}
+              className="px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold text-lg rounded-2xl hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 hover:scale-105 hover:-translate-y-1 shadow-2xl hover:shadow-blue-500/25"
+            >
+              <span className="flex items-center space-x-2">
+                <span>✨</span>
+                <span>Create Session</span>
+                <span className="text-sm opacity-90">(Sign Up)</span>
+              </span>
+            </button>
+            
+            {/* Tooltip */}
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 backdrop-blur-xl border border-white/20 rounded-lg text-white text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20">
+              <span>Create and manage your own auction sessions</span>
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-black/90"></div>
+            </div>
+          </div>
         </div>
 
         {/* Additional Info */}
