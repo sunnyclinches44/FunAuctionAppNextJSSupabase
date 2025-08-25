@@ -8,9 +8,9 @@ import { useRealTime } from '@/hooks/useRealTime'
 import { useBidding } from '@/hooks/useBidding'
 import ModernSessionLayout from '@/components/session/ModernSessionLayout'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import ErrorBoundary from '@/components/ErrorBoundary'
-import Navigation from '@/components/Navigation'
-import ModernFooter from '@/components/ModernFooter'
+import ErrorBoundary from '@/components/layout/ErrorBoundary'
+import Navigation from '@/components/layout/Navigation'
+import ModernFooter from '@/components/layout/ModernFooter'
 
 export default function SessionRoom() {
   const { code } = useParams<{ code: string }>()

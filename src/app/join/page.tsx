@@ -1,8 +1,8 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import Navigation from '@/components/Navigation';
-import ModernFooter from '@/components/ModernFooter';
+import Navigation from '@/components/layout/Navigation';
+import ModernFooter from '@/components/layout/ModernFooter';
 
 export default function JoinPage() {
   const router = useRouter();
