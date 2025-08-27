@@ -4,7 +4,7 @@ import { useState } from 'react'
 import ParticipantJoin from './ParticipantJoin'
 import ParticipantsList from './ParticipantsList'
 import Leaderboard from './Leaderboard'
-import BidsHistory from '@/components/BidsHistory'
+import BidsHistory from '@/components/auction/BidsHistory'
 import AchievementToast from '@/components/ui/AchievementToast'
 
 interface ModernSessionLayoutProps {

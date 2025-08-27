@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import Navigation from '@/components/Navigation'
-import ModernFooter from '@/components/ModernFooter'
+import Navigation from '@/components/layout/Navigation'
+import ModernFooter from '@/components/layout/ModernFooter'
 
 // IMPORTANT: qrcode.react exports named components. Pick one:
 const QRCode = dynamic(() => import('qrcode.react').then(m => m.QRCodeSVG), { ssr: false })

@@ -1,10 +1,10 @@
 'use client'
 
-import Navigation from '@/components/Navigation'
-import HeroSection from '@/components/HeroSection'
-import HowItWorksSection from '@/components/HowItWorksSection'
-import FeaturesSection from '@/components/FeaturesSection'
-import ModernFooter from '@/components/ModernFooter'
+import Navigation from '@/components/layout/Navigation'
+import HeroSection from '@/components/marketing/HeroSection'
+import HowItWorksSection from '@/components/marketing/HowItWorksSection'
+import FeaturesSection from '@/components/marketing/FeaturesSection'
+import ModernFooter from '@/components/layout/ModernFooter'
 
 export default function Home() {
   return (

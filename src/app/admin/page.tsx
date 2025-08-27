@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import ModernAdminLayout from '@/components/admin/ModernAdminLayout'
-import Navigation from '@/components/Navigation'
-import ModernFooter from '@/components/ModernFooter'
+import Navigation from '@/components/layout/Navigation'
+import ModernFooter from '@/components/layout/ModernFooter'
 
 interface Session {
   id: string
