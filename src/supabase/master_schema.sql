@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS public.participants (
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   device_id text,
   display_name text NOT NULL,
+  mobile_number text NOT NULL,
   amount numeric NOT NULL DEFAULT 0,
   created_at timestamptz DEFAULT now(),
   UNIQUE (session_id, user_id),
@@ -160,7 +161,8 @@ WITH CHECK (
 CREATE OR REPLACE FUNCTION join_session(
   p_session_code text,
   p_display_name text,
-  p_device_id text
+  p_device_id text,
+  p_mobile_number text
 )
 RETURNS json
 LANGUAGE plpgsql
@@ -184,6 +186,10 @@ BEGIN
     RAISE EXCEPTION 'Session code is required';
   END IF;
   
+  IF p_mobile_number IS NULL OR trim(p_mobile_number) = '' THEN
+    RAISE EXCEPTION 'Mobile number is required';
+  END IF;
+  
   -- Get session ID and validate it's active
   SELECT id INTO v_session_id 
   FROM sessions 
@@ -201,7 +207,7 @@ BEGIN
   IF v_existing_participant IS NOT NULL THEN
     -- Update existing participant
     UPDATE participants 
-    SET display_name = p_display_name
+    SET display_name = p_display_name, mobile_number = p_mobile_number
     WHERE id = v_existing_participant.id
     RETURNING id INTO v_participant_id;
     
@@ -214,8 +220,8 @@ BEGIN
     );
   ELSE
     -- Create new participant
-    INSERT INTO participants (session_id, device_id, display_name, amount)
-    VALUES (v_session_id, p_device_id, p_display_name, 0)
+    INSERT INTO participants (session_id, device_id, display_name, mobile_number, amount)
+    VALUES (v_session_id, p_device_id, p_display_name, p_mobile_number, 0)
     RETURNING id INTO v_participant_id;
     
     RETURN json_build_object(
@@ -341,7 +347,7 @@ $$;
 -- ============ STEP 6: GRANT PERMISSIONS ============
 
 -- Grant execute permissions on RPC functions
-GRANT EXECUTE ON FUNCTION join_session(text, text, text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION join_session(text, text, text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION place_bid(text, text, numeric) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_session_details(text) TO anon, authenticated;
 

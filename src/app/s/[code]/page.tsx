@@ -16,6 +16,7 @@ export default function SessionRoom() {
   const { code } = useParams<{ code: string }>()
   const [myDeviceId, setMyDeviceId] = useState<string>('')
   const [myName, setMyName] = useState<string>('')
+  const [myMobileNumber, setMyMobileNumber] = useState<string>('')
   const [isSavingName, setIsSavingName] = useState(false)
   const [achievementToast, setAchievementToast] = useState<{
     message: string
@@ -64,10 +65,43 @@ export default function SessionRoom() {
   // Handle name saving
   const handleSaveName = async () => {
     if (!myName.trim() || !code) return
+    
+    // Validate mobile number
+    if (!myMobileNumber.trim()) {
+      alert('Please enter your mobile number')
+      return
+    }
+
+    // Enhanced mobile number validation
+    const validateMobileNumber = (number: string): boolean => {
+      const cleanNumber = number.replace(/[\s\-\(\)]/g, '')
+      
+      // Australian mobile number patterns
+      const auPatterns = [
+        /^\+614\d{8}$/,           // +61 4XX XXX XXX
+        /^614\d{8}$/,             // 61 4XX XXX XXX (without +)
+        /^04\d{8}$/,              // 04XX XXX XXX
+        /^4\d{8}$/,               // 4XX XXX XXX (without 0)
+      ]
+      
+      // International patterns (common formats)
+      const internationalPatterns = [
+        /^\+[1-9]\d{1,14}$/,     // +[country code][number] (E.164 format)
+        /^00[1-9]\d{1,14}$/,     // 00[country code][number] (international format)
+      ]
+      
+      return auPatterns.some(pattern => pattern.test(cleanNumber)) ||
+             internationalPatterns.some(pattern => pattern.test(cleanNumber))
+    }
+
+    if (!validateMobileNumber(myMobileNumber.trim())) {
+      alert('Please enter a valid mobile number (e.g., +61 4XX XXX XXX or 04XX XXX XXX)')
+      return
+    }
 
     setIsSavingName(true)
     try {
-      const success = await joinSession(code, myName.trim(), myDeviceId)
+      const success = await joinSession(code, myName.trim(), myDeviceId, myMobileNumber.trim())
 
       if (success) {
         // Save to localStorage
@@ -194,6 +228,8 @@ export default function SessionRoom() {
           myDeviceId={myDeviceId}
           myName={myName}
           onNameChange={setMyName}
+          mobileNumber={myMobileNumber}
+          onMobileNumberChange={setMyMobileNumber}
           onSave={handleSaveName}
           isSaving={isSavingName}
           hasJoined={hasJoined}
