@@ -19,6 +19,7 @@ interface Session {
 interface Participant {
   id: string
   display_name: string
+  mobile_number: string
   amount: number
   device_id: string
   created_at: string
@@ -159,7 +160,7 @@ export default function AdminPage() {
     try {
       const { data: participants, error } = await supabase
         .from('participants')
-        .select('id, display_name, amount, device_id, created_at')
+        .select('id, display_name, mobile_number, amount, device_id, created_at')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: true })
 

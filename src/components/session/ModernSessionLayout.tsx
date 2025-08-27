@@ -14,6 +14,8 @@ interface ModernSessionLayoutProps {
   myDeviceId: string
   myName: string
   onNameChange: (name: string) => void
+  mobileNumber: string
+  onMobileNumberChange: (mobileNumber: string) => void
   onSave: () => Promise<void>
   isSaving: boolean
   hasJoined: boolean
@@ -39,6 +41,8 @@ export default function ModernSessionLayout({
   myDeviceId,
   myName,
   onNameChange,
+  mobileNumber,
+  onMobileNumberChange,
   onSave,
   isSaving,
   hasJoined,
@@ -109,6 +113,8 @@ export default function ModernSessionLayout({
               <ParticipantJoin
                 myName={myName}
                 onNameChange={onNameChange}
+                mobileNumber={mobileNumber}
+                onMobileNumberChange={onMobileNumberChange}
                 onSave={onSave}
                 isSaving={isSaving}
                 hasJoined={hasJoined}

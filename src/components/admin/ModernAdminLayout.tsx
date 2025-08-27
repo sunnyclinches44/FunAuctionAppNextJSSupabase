@@ -15,6 +15,7 @@ interface Session {
 interface Participant {
   id: string
   display_name: string
+  mobile_number: string
   amount: number
   device_id: string
   created_at: string
@@ -240,10 +241,15 @@ export default function ModernAdminLayout({
                 {/* Expanded Participants Section */}
                 {expandedSessions.has(session.id) && (
                   <div className="mt-6 pt-6 border-t border-white/10 animate-fade-in-up">
-                    <h4 className="text-lg font-semibold text-slate-200 mb-4 flex items-center space-x-2">
-                      <span>👥</span>
-                      <span>Participants</span>
-                    </h4>
+                    <div className="mb-4">
+                      <h4 className="text-lg font-semibold text-slate-200 mb-2 flex items-center space-x-2">
+                        <span>👥</span>
+                        <span>Participants</span>
+                      </h4>
+                      <p className="text-sm text-slate-400">
+                        📱 Mobile numbers are displayed below each participant for easy follow-up on payments
+                      </p>
+                    </div>
                     
                     {loadingParticipants.has(session.id) ? (
                       <div className="text-center py-8">
@@ -263,7 +269,13 @@ export default function ModernAdminLayout({
                               </div>
                               <div>
                                 <div className="font-medium text-slate-200">{participant.display_name}</div>
-                                <div className="text-sm text-slate-400">ID: {participant.device_id.slice(0, 8)}...</div>
+                                <div className="text-sm text-blue-400 font-medium">📱 {participant.mobile_number}</div>
+                                <div className="text-xs text-slate-500">ID: {participant.device_id.slice(0, 8)}...</div>
+                                {participant.amount > 0 && (
+                                  <div className="text-xs text-amber-400 mt-1">
+                                    💰 Last bid: ${participant.amount}
+                                  </div>
+                                )}
                               </div>
                             </div>
                             
@@ -275,12 +287,25 @@ export default function ModernAdminLayout({
                                 </div>
                               </div>
                               
-                              <button
-                                onClick={() => handleDeleteParticipant(participant.id, session.id, participant.display_name)}
-                                className="px-3 py-1 bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30 text-red-400 text-sm rounded-lg hover:bg-red-500/30 transition-all duration-200"
-                              >
-                                🗑️
-                              </button>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(participant.mobile_number);
+                                    // You could add a toast notification here
+                                  }}
+                                  className="px-2 py-1 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 text-blue-400 text-xs rounded-lg hover:bg-blue-500/30 transition-all duration-200"
+                                  title="Copy mobile number"
+                                >
+                                  📋
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteParticipant(participant.id, session.id, participant.display_name)}
+                                  className="px-3 py-1 bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30 text-red-400 text-sm rounded-lg hover:bg-red-500/30 transition-all duration-200"
+                                  title="Delete participant"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))}

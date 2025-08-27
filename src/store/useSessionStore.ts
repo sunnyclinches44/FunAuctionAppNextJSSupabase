@@ -14,6 +14,7 @@ export interface Participant {
   user_id: string | null
   device_id: string | null
   display_name: string
+  mobile_number: string
   amount: number
   created_at: string
 }
@@ -55,7 +56,7 @@ interface SessionState {
   
   // Async actions
   loadSession: (sessionCode: string) => Promise<void>
-  joinSession: (sessionCode: string, displayName: string, deviceId: string) => Promise<boolean>
+  joinSession: (sessionCode: string, displayName: string, deviceId: string, mobileNumber: string) => Promise<boolean>
   placeBid: (sessionCode: string, deviceId: string, amount: number) => Promise<boolean>
 }
 
@@ -167,12 +168,13 @@ export const useSessionStore = create<SessionState>()(
         }
       },
       
-      joinSession: async (sessionCode, displayName, deviceId) => {
+      joinSession: async (sessionCode, displayName, deviceId, mobileNumber) => {
         try {
           const { error } = await supabase.rpc('join_session', {
             p_session_code: sessionCode,
             p_display_name: displayName,
-            p_device_id: deviceId
+            p_device_id: deviceId,
+            p_mobile_number: mobileNumber
           })
           
           if (error) throw error

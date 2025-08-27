@@ -32,6 +32,13 @@ A modern, real-time auction platform built with **Next.js 14** and **Supabase**.
 
 ## 📸 **App Screenshots**
 
+### **👨 Home page interface**
+![Home Page Hero](docs/Home-page-herosection.png)
+
+![Home Page How it works](docs/Home-page-HowItWorks.png)
+
+![Home Page Features](docs/Home-page-features.png)
+
 ### **👨‍💼 Admin Panel Interface**
 ![Admin Panel](docs/admin-panel.png)
 *Admin dashboard showing active sessions, participant management, and session controls*
