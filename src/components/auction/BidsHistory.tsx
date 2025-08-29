@@ -1,180 +1,154 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
 interface Bid {
-  id: string
-  participant_name: string
-  amount: number
-  created_at: string
-}
-
-// Type for the raw data from Supabase join
-interface RawBidData {
-  id: string
+  id: number
   delta: number
   created_at: string
-  participants?: {
+  participants: {
     display_name: string
   }
 }
 
 interface BidsHistoryProps {
   sessionCode: string
+  isVisible?: boolean // Only load when visible
+  maxBids?: number // Limit number of bids to show
 }
 
-export default function BidsHistory({ sessionCode }: BidsHistoryProps) {
+export default function BidsHistory({ 
+  sessionCode, 
+  isVisible = false, 
+  maxBids = 3 
+}: BidsHistoryProps) {
   const [bids, setBids] = useState<Bid[]>([])
-  const [loading, setLoading] = useState(true)
-  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [lastLoaded, setLastLoaded] = useState<Date | null>(null)
 
-  // Define loadBidHistory with useCallback to fix dependency issues
-  const loadBidHistory = useCallback(async () => {
+  // Only load bids when component is visible and we haven't loaded recently
+  const shouldLoadBids = () => {
+    if (!isVisible) return false
+    if (!lastLoaded) return true
+    
+    // Only reload if it's been more than 30 seconds
+    const timeSinceLastLoad = Date.now() - lastLoaded.getTime()
+    return timeSinceLastLoad > 30000
+  }
+
+  const loadBids = async () => {
+    if (!shouldLoadBids()) return
+    
+    setIsLoading(true)
+    setError(null)
+    
     try {
-      setLoading(true)
-      
-      // First, get the session_id from the session_code
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('sessions')
-        .select('id')
-        .eq('code', sessionCode)
-        .eq('is_active', true)
-        .single()
-
-      if (sessionError || !sessionData) {
-        console.error('Error loading session:', sessionError)
-        return
-      }
-
-      const currentSessionId = sessionData.id
-      setSessionId(currentSessionId) // Store session_id for subscription
-
-      // Now get the bids with participant names
       const { data, error } = await supabase
         .from('bids')
         .select(`
           id,
           delta,
           created_at,
-          participants(display_name)
+          participants!inner(display_name)
         `)
-        .eq('session_id', currentSessionId)
+        .eq('session_id', (
+          await supabase
+            .from('sessions')
+            .select('id')
+            .eq('code', sessionCode)
+            .single()
+        ).data?.id)
         .order('created_at', { ascending: false })
-        .limit(3)
+        .limit(maxBids)
 
-      if (error) {
-        console.error('Error loading bid history:', error)
-        return
-      }
-
-      console.log('Raw bid data received:', JSON.stringify(data, null, 2))
-
-      // Transform data to match our interface
-      const transformedBids: Bid[] = (data as any[]).map(bid => ({
-        id: bid.id,
-        participant_name: bid.participants?.display_name || 'Unknown Participant',
-        amount: bid.delta,
-        created_at: bid.created_at
-      }))
-
-      setBids(transformedBids)
-    } catch (error) {
-      console.error('Error loading bid history:', error)
+      if (error) throw error
+      
+      setBids(data || [])
+      setLastLoaded(new Date())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load bid history')
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
-  }, [sessionCode])
-
-  // Fetch initial bid history and get session_id
-  useEffect(() => {
-    loadBidHistory()
-  }, [loadBidHistory])
-
-  // Real-time subscription for new bids - FIXED: Use session_id instead of session_code
-  useEffect(() => {
-    if (!sessionId) return // Wait until we have the session_id
-
-    const channel = supabase
-      .channel(`bids-${sessionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'bids',
-          filter: `session_id=eq.${sessionId}` // FIXED: Use actual session_id
-        },
-        (payload) => {
-          console.log('New bid received:', payload)
-          // Reload the entire history since we need to join with participants
-          loadBidHistory()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [sessionId, loadBidHistory])
-
-  function formatTimeAgo(dateString: string): string {
-    const now = new Date()
-    const bidTime = new Date(dateString)
-    const diffInSeconds = Math.floor((now.getTime() - bidTime.getTime()) / 1000)
-
-    if (diffInSeconds < 60) return 'Just now'
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} min ago`
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hour ago`
-    return `${Math.floor(diffInSeconds / 86400)} day ago`
   }
 
-  if (loading) {
+  // Load bids when component becomes visible
+  useEffect(() => {
+    if (isVisible) {
+      loadBids()
+    }
+  }, [isVisible, sessionCode])
+
+  // Don't render anything if not visible
+  if (!isVisible) {
+    return null
+  }
+
+  if (isLoading) {
     return (
-      <div className="max-w-2xl mx-auto mt-6 p-4 bg-slate-800/30 border border-slate-600 rounded-xl">
-        <div className="text-sm text-slate-400 text-center">Loading bid history...</div>
+      <div className="text-center py-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+        <p className="text-slate-400 mt-2">Loading bid history...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-4">
+        <p className="text-red-400 text-sm">{error}</p>
+        <button 
+          onClick={loadBids}
+          className="mt-2 text-blue-400 hover:text-blue-300 text-sm"
+        >
+          Try again
+        </button>
       </div>
     )
   }
 
   if (bids.length === 0) {
     return (
-      <div className="max-w-2xl mx-auto mt-6 p-4 bg-slate-800/30 border border-slate-600 rounded-xl">
-        <div className="text-sm text-slate-400 text-center">No bids yet. Be the first to bid!</div>
+      <div className="text-center py-4">
+        <p className="text-slate-400 text-sm">No bids yet</p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-2xl mx-auto mt-6 p-4 bg-slate-800/30 border border-slate-600 rounded-xl backdrop-blur-sm">
-      <h3 className="text-sm font-medium text-slate-300 mb-3 text-center">Recent Bids</h3>
-      <div className="space-y-2">
-        {bids.map((bid, index) => (
-          <div 
-            key={bid.id}
-            className={`flex items-center justify-between p-2 rounded-lg transition-all duration-200 ${
-              index === 0 
-                ? 'bg-blue-500/20 border border-blue-400/30' 
-                : 'bg-slate-700/30'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-300">
-                {bid.participant_name}
-              </span>
-              <span className="text-slate-500">→</span>
-              <span className="text-sm font-medium text-white">
-                +${bid.amount}
-              </span>
+    <div className="space-y-3">
+      <h4 className="text-sm font-medium text-slate-300 mb-3">Recent Bids</h4>
+      {bids.map((bid) => (
+        <div key={bid.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
+              <span className="text-blue-400 text-sm">💰</span>
             </div>
-            <span className={`text-xs ${
-              index === 0 ? 'text-blue-300' : 'text-slate-400'
-            }`}>
-              {formatTimeAgo(bid.created_at)}
-            </span>
+            <div>
+              <p className="text-slate-200 text-sm font-medium">
+                {bid.participants.display_name}
+              </p>
+              <p className="text-slate-400 text-xs">
+                {new Date(bid.created_at).toLocaleTimeString()}
+              </p>
+            </div>
           </div>
-        ))}
-      </div>
+          <div className="text-right">
+            <p className="text-green-400 font-semibold">+${bid.delta}</p>
+          </div>
+        </div>
+      ))}
+      
+      {/* Refresh button for manual refresh */}
+      <button 
+        onClick={loadBids}
+        className="w-full mt-3 py-2 px-3 bg-slate-700/50 hover:bg-slate-700/70 text-slate-300 text-sm rounded-lg transition-colors"
+        disabled={isLoading}
+      >
+        {isLoading ? 'Refreshing...' : 'Refresh History'}
+      </button>
     </div>
   )
 }

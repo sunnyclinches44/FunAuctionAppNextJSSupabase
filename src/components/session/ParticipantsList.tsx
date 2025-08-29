@@ -7,6 +7,7 @@ interface ParticipantsListProps {
   currentDeviceId: string
   onPlaceBid: (amount: number, participantId: string) => Promise<boolean>
   onCustomBid: (participantId: string) => void
+  onUndoBid: (participantId: string) => Promise<boolean>
   isPlacingBid: string | null
   showCustomInput: string | null
   customAmount: string
@@ -20,6 +21,7 @@ const ParticipantsList = memo(function ParticipantsList({
   currentDeviceId,
   onPlaceBid,
   onCustomBid,
+  onUndoBid,
   isPlacingBid,
   showCustomInput,
   customAmount,
@@ -39,11 +41,237 @@ const ParticipantsList = memo(function ParticipantsList({
     Number(b.amount || 0) - Number(a.amount || 0)
   )
 
+  // Check if participant can bid (not currently bidding)
+  const canParticipantBid = (participantId: string) => {
+    return isPlacingBid !== participantId
+  }
+
+  // Sort participants: current user first, then others by amount
+  const sortedParticipantsForDisplay = [...participants].sort((a, b) => {
+    const aIsSelf = a.device_id && a.device_id === currentDeviceId
+    const bIsSelf = b.device_id && b.device_id === currentDeviceId
+    
+    // Current user always comes first
+    if (aIsSelf && !bIsSelf) return -1
+    if (!aIsSelf && bIsSelf) return 1
+    
+    // If both are current user or both are not, sort by amount
+    if (aIsSelf === bIsSelf) {
+      return Number(b.amount || 0) - Number(a.amount || 0)
+    }
+    
+    return 0
+  })
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-center text-slate-300">Participants</h3>
       
-      {participants.map((p) => {
+      {/* Current User Section - Always at Top */}
+      {sortedParticipantsForDisplay.filter(p => p.device_id && p.device_id === currentDeviceId).length > 0 && (
+        <>
+          <div className="text-center py-2">
+            <div className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-xl">
+              <span className="text-lg">👤</span>
+              <span className="text-sm font-medium text-blue-300">Your Bidding Interface</span>
+            </div>
+          </div>
+          
+          {sortedParticipantsForDisplay.filter(p => p.device_id && p.device_id === currentDeviceId).map((p) => {
+        const isSelf = true // This is always true in this section
+        const isHighestBidder = p.id === highestBidder?.id
+        const rank = sortedParticipants.findIndex(participant => participant.id === p.id) + 1
+        const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`
+        
+        return (
+          <div
+            key={p.id}
+            className={`p-4 rounded-xl border transition-all duration-300 ${
+              isHighestBidder
+                ? 'bg-gradient-to-r from-amber-900/50 to-yellow-800/50 border-amber-500/60 shadow-lg shadow-amber-500/20 highest-bidder-card'
+                : 'bg-gradient-to-r from-blue-900/30 to-cyan-800/20 border-blue-500/40 shadow-lg shadow-blue-500/20'
+            }`}
+          >
+            {/* Current User Badge */}
+            <div className="flex items-center justify-center mb-3">
+              <div className="flex items-center gap-2 bg-gradient-to-r from-blue-400 to-cyan-400 text-blue-900 px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+                <span className="text-lg">👤</span>
+                <span>You</span>
+              </div>
+            </div>
+
+            {/* Highest Bidder Badge - Show if also highest bidder */}
+            {isHighestBidder && (
+              <div className="flex items-center justify-center mb-3">
+                <div className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900 px-3 py-1 rounded-full text-sm font-bold shadow-lg trophy-badge">
+                  <span className="text-lg">🏆</span>
+                  <span>Highest Bidder</span>
+                </div>
+              </div>
+            )}
+
+            {/* Mobile-first responsive header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <div className={`text-lg sm:text-xl font-semibold ${isHighestBidder ? 'text-amber-200' : 'text-blue-200'}`}>
+                  {p.display_name}
+                </div>
+                {isHighestBidder && (
+                  <span className="text-xl sm:text-2xl crown-animation">👑</span>
+                )}
+                {/* Position indicator */}
+                <span className={`text-xs sm:text-sm px-2 py-1 rounded-full position-bounce ${
+                  rank === 1 ? 'bg-yellow-500/20 text-yellow-300' :
+                  rank === 2 ? 'bg-gray-500/20 text-gray-300' :
+                  rank === 3 ? 'bg-amber-600/20 text-amber-300' :
+                  'bg-slate-500/20 text-slate-300'
+                }`}>
+                  {rankEmoji}
+                </span>
+              </div>
+              <div className="text-slate-400 text-sm sm:text-base self-start sm:self-auto">Bid</div>
+            </div>
+            
+            <div className={`mt-2 sm:mt-1 text-xl sm:text-2xl font-extrabold ${
+              isHighestBidder ? 'text-amber-300' : 'text-blue-300'
+            }`}>
+              ${Number(p.amount || 0)}
+            </div>
+
+            {/* Progress bar showing relative position to highest bidder */}
+            {highestBidder && highestBidder.amount > 0 && (
+              <div className="mt-3 sm:mt-2 w-full bg-slate-700 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    isHighestBidder 
+                      ? 'bg-gradient-to-r from-amber-400 to-yellow-400' 
+                      : 'bg-gradient-to-r from-blue-500 to-cyan-500'
+                  }`}
+                  style={{ 
+                    width: `${Math.min((Number(p.amount || 0) / Number(highestBidder.amount)) * 100, 100)}%` 
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Bid buttons - Always shown for current user */}
+            <div className="mt-4 sm:mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-start">
+              {PRESET_AMOUNTS.map((a) => (
+                <button
+                  key={a}
+                  disabled={!canParticipantBid(p.id)}
+                  className={`btn px-3 py-2 rounded-lg transition-all duration-200 ${
+                    canParticipantBid(p.id)
+                      ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover hover:scale-105'
+                      : 'bg-white/10 text-slate-400 cursor-not-allowed opacity-60'
+                  }`}
+                  onClick={() => onPlaceBid(a, p.id)}
+                >
+                  {isPlacingBid === p.id ? '...' : `+$${a}`}
+                </button>
+              ))}
+              
+              {/* Custom Amount Button */}
+              <button
+                disabled={!canParticipantBid(p.id)}
+                className={`btn px-3 py-2 rounded-lg transition-all duration-200 ${
+                  canParticipantBid(p.id)
+                    ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover hover:scale-105'
+                    : 'bg-white/10 text-slate-400 cursor-not-allowed opacity-60'
+                }`}
+                onClick={() => onCustomBid(p.id)}
+              >
+                {isPlacingBid === p.id ? '...' : 'Custom'}
+              </button>
+            </div>
+
+            {/* Undo Button - Show if participant has bids */}
+            {p.amount > 0 && (
+              <div className="mt-3 flex justify-center">
+                <button
+                  onClick={() => onUndoBid(p.id)}
+                  disabled={!canParticipantBid(p.id)}
+                  className={`btn px-4 py-2 rounded-lg transition-all duration-200 ${
+                    canParticipantBid(p.id)
+                      ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white hover:scale-105 shadow-lg'
+                      : 'bg-white/10 text-slate-400 cursor-not-allowed opacity-60'
+                  }`}
+                  title="Undo your last bid"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>↶</span>
+                    <span>Undo Last Bid</span>
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {/* Custom Amount Modal - only show for current user */}
+            {showCustomInput === p.id && (
+              <div className="mt-4 p-4 sm:p-5 bg-slate-800/50 border border-slate-600 rounded-xl backdrop-blur-sm">
+                <div className="text-sm sm:text-base text-slate-300 mb-3 sm:mb-4">Enter custom amount (≥ $5)</div>
+                
+                {/* Mobile-first responsive layout */}
+                <div className="space-y-4 sm:space-y-0 sm:flex sm:gap-3">
+                  {/* Input field - full width on mobile, flex-1 on larger screens */}
+                  <input
+                    type="number"
+                    min={MIN_BID_AMOUNT}
+                    step="1"
+                    value={customAmount}
+                    onChange={(e) => onCustomAmountChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        onCustomAmountSubmit(p.id)
+                      } else if (e.key === 'Escape') {
+                        onCustomAmountCancel()
+                      }
+                    }}
+                    placeholder="Enter amount..."
+                    className="w-full sm:flex-1 bg-white/10 border border-slate-500 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 text-base"
+                    autoFocus
+                  />
+                  
+                  {/* Button container - stacked on mobile, horizontal on larger screens */}
+                  <div className="flex gap-3 sm:gap-2 sm:flex-shrink-0">
+                    <button
+                      onClick={() => onCustomAmountSubmit(p.id)}
+                      disabled={!customAmount || Number(customAmount) < MIN_BID_AMOUNT}
+                      className={`flex-1 sm:flex-none btn px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        customAmount && Number(customAmount) >= MIN_BID_AMOUNT
+                          ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover hover:scale-105'
+                          : 'bg-white/10 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                      Add
+                    </button>
+                    <button
+                      onClick={onCustomAmountCancel}
+                      className="flex-1 sm:flex-none btn bg-slate-600 hover:bg-slate-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })}
+        </>
+      )}
+
+      {/* Other Participants Section */}
+      {sortedParticipantsForDisplay.filter(p => !p.device_id || p.device_id !== currentDeviceId).length > 0 && (
+        <>
+          <div className="text-center py-4">
+            <div className="inline-flex items-center space-x-2 px-4 py-2 bg-slate-700/30 border border-slate-600/40 rounded-xl">
+              <span className="text-lg">👥</span>
+              <span className="text-sm font-medium text-slate-300">Other Participants</span>
+            </div>
+          </div>
+          
+          {sortedParticipantsForDisplay.filter(p => !p.device_id || p.device_id !== currentDeviceId).map((p) => {
         const isSelf = p.device_id && p.device_id === currentDeviceId
         const isHighestBidder = p.id === highestBidder?.id
         const rank = sortedParticipants.findIndex(participant => participant.id === p.id) + 1
@@ -70,16 +298,17 @@ const ParticipantsList = memo(function ParticipantsList({
               </div>
             )}
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`text-lg font-semibold ${isHighestBidder ? 'text-amber-200' : ''}`}>
+            {/* Mobile-first responsive header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <div className={`text-lg sm:text-xl font-semibold ${isHighestBidder ? 'text-amber-200' : ''}`}>
                   {p.display_name}
                 </div>
                 {isHighestBidder && (
-                  <span className="text-2xl crown-animation">👑</span>
+                  <span className="text-xl sm:text-2xl crown-animation">👑</span>
                 )}
                 {/* Position indicator */}
-                <span className={`text-sm px-2 py-1 rounded-full position-bounce ${
+                <span className={`text-xs sm:text-sm px-2 py-1 rounded-full position-bounce ${
                   rank === 1 ? 'bg-yellow-500/20 text-yellow-300' :
                   rank === 2 ? 'bg-gray-500/20 text-gray-300' :
                   rank === 3 ? 'bg-amber-600/20 text-amber-300' :
@@ -88,10 +317,10 @@ const ParticipantsList = memo(function ParticipantsList({
                   {rankEmoji}
                 </span>
               </div>
-              <div className="text-slate-400 hidden sm:block">Bid</div>
+              <div className="text-slate-400 text-sm sm:text-base self-start sm:self-auto">Bid</div>
             </div>
             
-            <div className={`mt-1 text-2xl font-extrabold ${
+            <div className={`mt-2 sm:mt-1 text-xl sm:text-2xl font-extrabold ${
               isHighestBidder ? 'text-amber-300' : ''
             }`}>
               ${Number(p.amount || 0)}
@@ -99,7 +328,7 @@ const ParticipantsList = memo(function ParticipantsList({
 
             {/* Progress bar showing relative position to highest bidder */}
             {highestBidder && highestBidder.amount > 0 && (
-              <div className="mt-2 w-full bg-slate-700 rounded-full h-2">
+              <div className="mt-3 sm:mt-2 w-full bg-slate-700 rounded-full h-2">
                 <div 
                   className={`h-2 rounded-full transition-all duration-500 ${
                     isHighestBidder 
@@ -113,84 +342,12 @@ const ParticipantsList = memo(function ParticipantsList({
               </div>
             )}
 
-            {/* Only show bid buttons for current user */}
-            {isSelf && (
-              <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-start">
-                {PRESET_AMOUNTS.map((a) => (
-                  <button
-                    key={a}
-                    disabled={isPlacingBid === p.id}
-                    className={`btn px-3 py-2 rounded-lg ${
-                      isPlacingBid !== p.id
-                        ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
-                        : 'bg-white/10 text-slate-400 cursor-not-allowed'
-                    }`}
-                    onClick={() => onPlaceBid(a, p.id)}
-                  >
-                    {isPlacingBid === p.id ? '...' : `+$${a}`}
-                  </button>
-                ))}
-                
-                {/* Custom Amount Button */}
-                <button
-                  disabled={isPlacingBid === p.id}
-                  className={`btn px-3 py-2 rounded-lg ${
-                    isPlacingBid !== p.id
-                      ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
-                      : 'bg-white/10 text-slate-400 cursor-not-allowed'
-                  }`}
-                  onClick={() => onCustomBid(p.id)}
-                >
-                  Custom
-                </button>
-              </div>
-            )}
-
-            {/* Custom Amount Modal - only show for current user */}
-            {isSelf && showCustomInput === p.id && (
-              <div className="mt-4 p-4 bg-slate-800/50 border border-slate-600 rounded-xl backdrop-blur-sm">
-                <div className="text-sm text-slate-300 mb-3">Enter custom amount (≥ $5)</div>
-                <div className="flex gap-3">
-                  <input
-                    type="number"
-                    min={MIN_BID_AMOUNT}
-                    step="1"
-                    value={customAmount}
-                    onChange={(e) => onCustomAmountChange(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        onCustomAmountSubmit(p.id)
-                      } else if (e.key === 'Escape') {
-                        onCustomAmountCancel()
-                      }
-                    }}
-                    placeholder="Enter amount..."
-                    className="flex-1 bg-white/10 border border-slate-500 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                    autoFocus
-                  />
-                  <button
-                    onClick={() => onCustomAmountSubmit(p.id)}
-                    disabled={!customAmount || Number(customAmount) < MIN_BID_AMOUNT}
-                    className={`btn px-3 py-2 rounded-lg ${
-                      customAmount && Number(customAmount) >= MIN_BID_AMOUNT
-                        ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
-                        : 'bg-white/10 text-slate-400 cursor-not-allowed'
-                    }`}
-                  >
-                    Add
-                  </button>
-                  <button
-                    onClick={onCustomAmountCancel}
-                    className="btn bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* No bid buttons for other participants - they're read-only */}
           </div>
         )
       })}
+        </>
+      )}
     </div>
   )
 })

@@ -5,7 +5,6 @@ import ParticipantJoin from './ParticipantJoin'
 import ParticipantsList from './ParticipantsList'
 import Leaderboard from './Leaderboard'
 import BidsHistory from '@/components/auction/BidsHistory'
-import AchievementToast from '@/components/ui/AchievementToast'
 
 interface ModernSessionLayoutProps {
   session: any
@@ -22,6 +21,7 @@ interface ModernSessionLayoutProps {
   displayName?: string
   onPlaceBid: (amount: number, participantId: string) => Promise<boolean>
   onCustomBid: (participantId: string) => void
+  onUndoBid: (participantId: string) => Promise<boolean>
   isPlacingBid: string | null
   showCustomInput: string | null
   customAmount: string
@@ -30,8 +30,6 @@ interface ModernSessionLayoutProps {
   onCustomAmountCancel: () => void
   totalAmount: number
   sessionCode: string
-  achievementToast: any
-  onCloseToast: () => void
 }
 
 export default function ModernSessionLayout({
@@ -49,6 +47,7 @@ export default function ModernSessionLayout({
   displayName,
   onPlaceBid,
   onCustomBid,
+  onUndoBid,
   isPlacingBid,
   showCustomInput,
   customAmount,
@@ -56,9 +55,7 @@ export default function ModernSessionLayout({
   onCustomAmountSubmit,
   onCustomAmountCancel,
   totalAmount,
-  sessionCode,
-  achievementToast,
-  onCloseToast
+  sessionCode
 }: ModernSessionLayoutProps) {
   const [activeTab, setActiveTab] = useState<'participants' | 'leaderboard' | 'history'>('participants')
 
@@ -69,19 +66,9 @@ export default function ModernSessionLayout({
         <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-amber-400/10 to-orange-500/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-20 right-10 w-40 h-40 bg-gradient-to-br from-blue-400/10 to-cyan-500/10 rounded-full blur-3xl"></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-green-400/5 to-emerald-500/5 rounded-full blur-3xl"></div>
-      </div>
+              </div>
 
-      {/* Achievement Toast */}
-      {achievementToast && (
-        <AchievementToast
-          message={achievementToast.message}
-          type={achievementToast.type}
-          onClose={onCloseToast}
-          duration={5000}
-        />
-      )}
-
-      {/* Main Content */}
+        {/* Main Content */}
       <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-8 pt-24 overflow-x-hidden">
         {/* Join Section - Enhanced Design - Only show if user hasn't joined */}
         {!hasJoined && (
@@ -204,6 +191,7 @@ export default function ModernSessionLayout({
                   currentDeviceId={myDeviceId}
                   onPlaceBid={onPlaceBid}
                   onCustomBid={onCustomBid}
+                  onUndoBid={onUndoBid}
                   isPlacingBid={isPlacingBid}
                   showCustomInput={showCustomInput}
                   customAmount={customAmount}
@@ -240,7 +228,7 @@ export default function ModernSessionLayout({
                   </div>
                   <h3 className="text-xl font-bold text-slate-200">Bid History</h3>
                 </div>
-                <BidsHistory sessionCode={sessionCode} />
+                <BidsHistory sessionCode={sessionCode} isVisible={activeTab === 'history'} />
               </div>
             </div>
           )}
@@ -289,6 +277,7 @@ export default function ModernSessionLayout({
                 currentDeviceId={myDeviceId}
                 onPlaceBid={onPlaceBid}
                 onCustomBid={onCustomBid}
+                onUndoBid={onUndoBid}
                 isPlacingBid={isPlacingBid}
                 showCustomInput={showCustomInput}
                 customAmount={customAmount}
@@ -310,7 +299,7 @@ export default function ModernSessionLayout({
                   </div>
                   <h3 className="text-xl font-bold text-slate-200">Bid History</h3>
                 </div>
-                <BidsHistory sessionCode={sessionCode} />
+                <BidsHistory sessionCode={sessionCode} isVisible={true} />
               </div>
 
               {/* Grand Total */}
@@ -330,6 +319,23 @@ export default function ModernSessionLayout({
           <div className="grid md:grid-cols-2 gap-8">
             {/* Left Column: Leaderboard */}
             <div className="space-y-6">
+              {/* Real-time Connection Status */}
+              <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full ${
+                      rtReady ? 'bg-green-400 animate-pulse' : 'bg-red-400'
+                    }`}></div>
+                    <span className="text-sm text-slate-300">
+                      {rtReady ? 'Live Updates Connected' : 'Connecting...'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {rtReady ? 'Real-time sync active' : 'Establishing connection'}
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
                 <div className="flex items-center space-x-2 mb-6">
                   <div className="w-10 h-10 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center text-xl">
@@ -355,6 +361,7 @@ export default function ModernSessionLayout({
                   currentDeviceId={myDeviceId}
                   onPlaceBid={onPlaceBid}
                   onCustomBid={onCustomBid}
+                  onUndoBid={onUndoBid}
                   isPlacingBid={isPlacingBid}
                   showCustomInput={showCustomInput}
                   customAmount={customAmount}
@@ -371,7 +378,7 @@ export default function ModernSessionLayout({
                   </div>
                   <h3 className="text-xl font-bold text-slate-200">Bid History</h3>
                 </div>
-                <BidsHistory sessionCode={sessionCode} />
+                <BidsHistory sessionCode={sessionCode} isVisible={true} />
               </div>
 
               <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 backdrop-blur-xl rounded-3xl p-6 shadow-2xl">
