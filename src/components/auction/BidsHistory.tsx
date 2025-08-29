@@ -1,15 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
-interface Bid {
+// Interface for the data returned by Supabase query
+interface BidWithParticipant {
   id: number
   delta: number
   created_at: string
   participants: {
     display_name: string
-  }
+  }[]
 }
 
 interface BidsHistoryProps {
@@ -23,7 +24,7 @@ export default function BidsHistory({
   isVisible = false, 
   maxBids = 3 
 }: BidsHistoryProps) {
-  const [bids, setBids] = useState<Bid[]>([])
+  const [bids, setBids] = useState<BidWithParticipant[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastLoaded, setLastLoaded] = useState<Date | null>(null)
@@ -38,7 +39,7 @@ export default function BidsHistory({
     return timeSinceLastLoad > 30000
   }
 
-  const loadBids = async () => {
+  const loadBids = useCallback(async () => {
     if (!shouldLoadBids()) return
     
     setIsLoading(true)
@@ -72,14 +73,14 @@ export default function BidsHistory({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [sessionCode, maxBids])
 
   // Load bids when component becomes visible
   useEffect(() => {
     if (isVisible) {
       loadBids()
     }
-  }, [isVisible, sessionCode])
+  }, [isVisible, loadBids])
 
   // Don't render anything if not visible
   if (!isVisible) {
@@ -128,7 +129,7 @@ export default function BidsHistory({
             </div>
             <div>
               <p className="text-slate-200 text-sm font-medium">
-                {bid.participants.display_name}
+                {bid.participants[0]?.display_name || 'Unknown'}
               </p>
               <p className="text-slate-400 text-xs">
                 {new Date(bid.created_at).toLocaleTimeString()}
