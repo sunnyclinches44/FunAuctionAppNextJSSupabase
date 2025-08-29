@@ -106,31 +106,31 @@ export default function ModernAdminLayout({
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
-        <div className="text-center mb-12 animate-fade-in-up">
-          <div className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl text-amber-300 mb-6">
-            <span className="text-lg">⚙️</span>
-            <span className="font-medium">Admin Panel</span>
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Header Section - Mobile Responsive */}
+        <div className="text-center mb-8 sm:mb-12 animate-fade-in-up">
+          <div className="inline-flex items-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl text-amber-300 mb-4 sm:mb-6">
+            <span className="text-base sm:text-lg">⚙️</span>
+            <span className="font-medium text-sm sm:text-base">Admin Panel</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-200 mb-4">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-slate-200 mb-3 sm:mb-4">
             Manage Your
             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">
               Auction Sessions
             </span>
           </h1>
-          <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg lg:text-xl text-slate-400 max-w-2xl mx-auto px-4">
             Create, monitor, and manage all your auction sessions from one central location
           </p>
         </div>
 
-        {/* Create Session Button */}
-        <div className="text-center mb-12 animate-fade-in-up" style={{animationDelay: '0.1s'}}>
+        {/* Create Session Button - Mobile Responsive */}
+        <div className="text-center mb-8 sm:mb-12 animate-fade-in-up" style={{animationDelay: '0.1s'}}>
           <button
             onClick={onCreateSession}
-            className="group relative px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-lg rounded-2xl shadow-2xl hover:shadow-amber-500/25 transition-all duration-300 hover:scale-105 hover:-translate-y-1"
+            className="group relative w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-base sm:text-lg rounded-2xl shadow-2xl hover:shadow-amber-500/25 transition-all duration-300 hover:scale-105 hover:-translate-y-1"
           >
-            <span className="relative z-10 flex items-center space-x-2">
+            <span className="relative z-10 flex items-center justify-center sm:justify-start space-x-2">
               <span>✨</span>
               <span>Create New Session</span>
               <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
@@ -151,25 +151,25 @@ export default function ModernAdminLayout({
             sessions.map((session, index) => (
               <div
                 key={session.id}
-                className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl hover:shadow-3xl transition-all duration-300"
+                className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl p-4 sm:p-6 shadow-2xl hover:shadow-3xl transition-all duration-300"
                 style={{animationDelay: `${0.3 + index * 0.1}s`}}
               >
-                {/* Session Header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center text-xl font-bold text-white">
+                {/* Session Header - Mobile Responsive */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                  <div className="flex items-center space-x-3 sm:space-x-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center text-lg sm:text-xl font-bold text-white">
                       {session.code.slice(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-slate-200">{session.title}</h3>
-                      <p className="text-slate-400 text-sm">Code: {session.code}</p>
+                      <h3 className="text-lg sm:text-xl font-bold text-slate-200">{session.title}</h3>
+                      <p className="text-slate-400 text-xs sm:text-sm">Code: {session.code}</p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center justify-between sm:justify-end space-x-3 sm:space-x-4">
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-amber-400">${session.total_amount}</div>
-                      <div className="text-sm text-slate-400">{session.participant_count} participants</div>
+                      <div className="text-xl sm:text-2xl font-bold text-amber-400">${session.total_amount}</div>
+                      <div className="text-xs sm:text-sm text-slate-400">{session.participant_count} participants</div>
                     </div>
                     
                     <button
@@ -177,7 +177,7 @@ export default function ModernAdminLayout({
                       className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all duration-200"
                     >
                       <svg 
-                        className={`w-6 h-6 transition-transform duration-200 ${expandedSessions.has(session.id) ? 'rotate-180' : ''}`}
+                        className={`w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-200 ${expandedSessions.has(session.id) ? 'rotate-180' : ''}`}
                         fill="none" 
                         stroke="currentColor" 
                         viewBox="0 0 24 24"
@@ -188,51 +188,53 @@ export default function ModernAdminLayout({
                   </div>
                 </div>
 
-                {/* Session Details */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                  <div className="bg-white/5 rounded-2xl p-4 text-center">
-                    <div className="text-2xl mb-2">👥</div>
-                    <div className="text-lg font-semibold text-slate-200">{session.participant_count}</div>
-                    <div className="text-sm text-slate-400">Participants</div>
+                {/* Session Details - Mobile Responsive */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
+                  <div className="bg-white/5 rounded-2xl p-3 sm:p-4 text-center">
+                    <div className="text-xl sm:text-2xl mb-2">👥</div>
+                    <div className="text-base sm:text-lg font-semibold text-slate-200">{session.participant_count}</div>
+                    <div className="text-xs sm:text-sm text-slate-400">Participants</div>
                   </div>
                   
-                  <div className="bg-white/5 rounded-2xl p-4 text-center">
-                    <div className="text-2xl mb-2">💰</div>
-                    <div className="text-lg font-semibold text-slate-200">${session.total_amount}</div>
-                    <div className="text-sm text-slate-400">Total Amount</div>
+                  <div className="bg-white/5 rounded-2xl p-3 sm:p-4 text-center">
+                    <div className="text-xl sm:text-2xl mb-2">💰</div>
+                    <div className="text-base sm:text-lg font-semibold text-slate-200">${session.total_amount}</div>
+                    <div className="text-xs sm:text-sm text-slate-400">Total Amount</div>
                   </div>
                   
-                  <div className="bg-white/5 rounded-2xl p-4 text-center">
-                    <div className="text-2xl mb-2">📅</div>
-                    <div className="text-lg font-semibold text-slate-200">
+                  <div className="bg-white/5 rounded-2xl p-3 sm:p-4 text-center">
+                    <div className="text-xl sm:text-2xl mb-2">📅</div>
+                    <div className="text-base sm:text-lg font-semibold text-slate-200">
                       {new Date(session.created_at).toLocaleDateString()}
                     </div>
-                    <div className="text-sm text-slate-400">Created</div>
+                    <div className="text-xs sm:text-sm text-slate-400">Created</div>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
+                {/* Action Buttons - Mobile Responsive */}
+                <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
+                  {/* Left side buttons - stack on mobile, horizontal on larger screens */}
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <button
                       onClick={() => router.push(`/s/${session.code}`)}
-                      className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium rounded-xl hover:scale-105 transition-all duration-200"
+                      className="w-full sm:w-auto px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium rounded-xl hover:scale-105 transition-all duration-200 text-center"
                     >
                       👁️ View Session
                     </button>
                     
                     <button
                       onClick={() => router.push(`/join?code=${session.code}`)}
-                      className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-medium rounded-xl hover:scale-105 transition-all duration-200"
+                      className="w-full sm:w-auto px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-medium rounded-xl hover:scale-105 transition-all duration-200 text-center"
                     >
                       🚀 Join Session
                     </button>
                   </div>
                   
+                  {/* Delete button - full width on mobile, auto width on larger screens */}
                   <button
                     onClick={() => handleDelete(session.id)}
                     disabled={deleting === session.id}
-                    className="px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white font-medium rounded-xl hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full sm:w-auto px-4 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white font-medium rounded-xl hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-center"
                   >
                     {deleting === session.id ? '🗑️ Deleting...' : '🗑️ Delete Session'}
                   </button>

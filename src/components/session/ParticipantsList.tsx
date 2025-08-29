@@ -39,6 +39,11 @@ const ParticipantsList = memo(function ParticipantsList({
     Number(b.amount || 0) - Number(a.amount || 0)
   )
 
+  // Check if participant can bid (not currently bidding)
+  const canParticipantBid = (participantId: string) => {
+    return isPlacingBid !== participantId
+  }
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-center text-slate-300">Participants</h3>
@@ -70,16 +75,17 @@ const ParticipantsList = memo(function ParticipantsList({
               </div>
             )}
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`text-lg font-semibold ${isHighestBidder ? 'text-amber-200' : ''}`}>
+            {/* Mobile-first responsive header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <div className={`text-lg sm:text-xl font-semibold ${isHighestBidder ? 'text-amber-200' : ''}`}>
                   {p.display_name}
                 </div>
                 {isHighestBidder && (
-                  <span className="text-2xl crown-animation">👑</span>
+                  <span className="text-xl sm:text-2xl crown-animation">👑</span>
                 )}
                 {/* Position indicator */}
-                <span className={`text-sm px-2 py-1 rounded-full position-bounce ${
+                <span className={`text-xs sm:text-sm px-2 py-1 rounded-full position-bounce ${
                   rank === 1 ? 'bg-yellow-500/20 text-yellow-300' :
                   rank === 2 ? 'bg-gray-500/20 text-gray-300' :
                   rank === 3 ? 'bg-amber-600/20 text-amber-300' :
@@ -88,10 +94,10 @@ const ParticipantsList = memo(function ParticipantsList({
                   {rankEmoji}
                 </span>
               </div>
-              <div className="text-slate-400 hidden sm:block">Bid</div>
+              <div className="text-slate-400 text-sm sm:text-base self-start sm:self-auto">Bid</div>
             </div>
             
-            <div className={`mt-1 text-2xl font-extrabold ${
+            <div className={`mt-2 sm:mt-1 text-xl sm:text-2xl font-extrabold ${
               isHighestBidder ? 'text-amber-300' : ''
             }`}>
               ${Number(p.amount || 0)}
@@ -99,7 +105,7 @@ const ParticipantsList = memo(function ParticipantsList({
 
             {/* Progress bar showing relative position to highest bidder */}
             {highestBidder && highestBidder.amount > 0 && (
-              <div className="mt-2 w-full bg-slate-700 rounded-full h-2">
+              <div className="mt-3 sm:mt-2 w-full bg-slate-700 rounded-full h-2">
                 <div 
                   className={`h-2 rounded-full transition-all duration-500 ${
                     isHighestBidder 
@@ -115,15 +121,15 @@ const ParticipantsList = memo(function ParticipantsList({
 
             {/* Only show bid buttons for current user */}
             {isSelf && (
-              <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-start">
+              <div className="mt-4 sm:mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-start">
                 {PRESET_AMOUNTS.map((a) => (
                   <button
                     key={a}
-                    disabled={isPlacingBid === p.id}
-                    className={`btn px-3 py-2 rounded-lg ${
-                      isPlacingBid !== p.id
-                        ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
-                        : 'bg-white/10 text-slate-400 cursor-not-allowed'
+                    disabled={!canParticipantBid(p.id)}
+                    className={`btn px-3 py-2 rounded-lg transition-all duration-200 ${
+                      canParticipantBid(p.id)
+                        ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover hover:scale-105'
+                        : 'bg-white/10 text-slate-400 cursor-not-allowed opacity-60'
                     }`}
                     onClick={() => onPlaceBid(a, p.id)}
                   >
@@ -133,24 +139,27 @@ const ParticipantsList = memo(function ParticipantsList({
                 
                 {/* Custom Amount Button */}
                 <button
-                  disabled={isPlacingBid === p.id}
-                  className={`btn px-3 py-2 rounded-lg ${
-                    isPlacingBid !== p.id
-                      ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
-                      : 'bg-white/10 text-slate-400 cursor-not-allowed'
+                  disabled={!canParticipantBid(p.id)}
+                  className={`btn px-3 py-2 rounded-lg transition-all duration-200 ${
+                    canParticipantBid(p.id)
+                      ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover hover:scale-105'
+                      : 'bg-white/10 text-slate-400 cursor-not-allowed opacity-60'
                   }`}
                   onClick={() => onCustomBid(p.id)}
                 >
-                  Custom
+                  {isPlacingBid === p.id ? '...' : 'Custom'}
                 </button>
               </div>
             )}
 
             {/* Custom Amount Modal - only show for current user */}
             {isSelf && showCustomInput === p.id && (
-              <div className="mt-4 p-4 bg-slate-800/50 border border-slate-600 rounded-xl backdrop-blur-sm">
-                <div className="text-sm text-slate-300 mb-3">Enter custom amount (≥ $5)</div>
-                <div className="flex gap-3">
+              <div className="mt-4 p-4 sm:p-5 bg-slate-800/50 border border-slate-600 rounded-xl backdrop-blur-sm">
+                <div className="text-sm sm:text-base text-slate-300 mb-3 sm:mb-4">Enter custom amount (≥ $5)</div>
+                
+                {/* Mobile-first responsive layout */}
+                <div className="space-y-4 sm:space-y-0 sm:flex sm:gap-3">
+                  {/* Input field - full width on mobile, flex-1 on larger screens */}
                   <input
                     type="number"
                     min={MIN_BID_AMOUNT}
@@ -165,26 +174,30 @@ const ParticipantsList = memo(function ParticipantsList({
                       }
                     }}
                     placeholder="Enter amount..."
-                    className="flex-1 bg-white/10 border border-slate-500 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full sm:flex-1 bg-white/10 border border-slate-500 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 text-base"
                     autoFocus
                   />
-                  <button
-                    onClick={() => onCustomAmountSubmit(p.id)}
-                    disabled={!customAmount || Number(customAmount) < MIN_BID_AMOUNT}
-                    className={`btn px-3 py-2 rounded-lg ${
-                      customAmount && Number(customAmount) >= MIN_BID_AMOUNT
-                        ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover'
-                        : 'bg-white/10 text-slate-400 cursor-not-allowed'
-                    }`}
-                  >
-                    Add
-                  </button>
-                  <button
-                    onClick={onCustomAmountCancel}
-                    className="btn bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg"
-                  >
-                    Cancel
-                  </button>
+                  
+                  {/* Button container - stacked on mobile, horizontal on larger screens */}
+                  <div className="flex gap-3 sm:gap-2 sm:flex-shrink-0">
+                    <button
+                      onClick={() => onCustomAmountSubmit(p.id)}
+                      disabled={!customAmount || Number(customAmount) < MIN_BID_AMOUNT}
+                      className={`flex-1 sm:flex-none btn px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        customAmount && Number(customAmount) >= MIN_BID_AMOUNT
+                          ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover hover:scale-105'
+                          : 'bg-white/10 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                      Add
+                    </button>
+                    <button
+                      onClick={onCustomAmountCancel}
+                      className="flex-1 sm:flex-none btn bg-slate-600 hover:bg-slate-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

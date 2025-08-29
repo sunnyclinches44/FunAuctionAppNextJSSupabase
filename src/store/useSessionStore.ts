@@ -49,6 +49,8 @@ interface SessionState {
   updateParticipant: (participant: Participant) => void
   removeParticipant: (participantId: string) => void
   addBid: (bid: Bid) => void
+  addOptimisticBid: (participantId: string, amount: number) => void
+  revertOptimisticBid: (participantId: string, amount: number) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setRtReady: (ready: boolean) => void
@@ -110,7 +112,75 @@ export const useSessionStore = create<SessionState>()(
           totalAmount: state.totalAmount - amount
         }
       }),
-      addBid: (bid) => set((state) => ({ bids: [bid, ...state.bids] })),
+      addBid: (bid) => set((state) => {
+        // Find the participant who placed the bid
+        const participant = state.participants.find(p => p.id === bid.participant_id)
+        
+        if (participant) {
+          // Update the participant's amount
+          const updatedParticipants = state.participants.map(p => 
+            p.id === bid.participant_id 
+              ? { ...p, amount: Number(p.amount || 0) + Number(bid.delta || 0) }
+              : p
+          )
+          
+          // Calculate new total amount
+          const newTotalAmount = updatedParticipants.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+          
+          return {
+            bids: [bid, ...state.bids],
+            participants: updatedParticipants,
+            totalAmount: newTotalAmount
+          }
+        }
+        
+        // If participant not found, just add the bid
+        return { bids: [bid, ...state.bids] }
+      }),
+
+      // Add optimistic bid update for better UX
+      addOptimisticBid: (participantId: string, amount: number) => set((state) => {
+        const participant = state.participants.find(p => p.id === participantId)
+        
+        if (participant) {
+          const updatedParticipants = state.participants.map(p => 
+            p.id === participantId 
+              ? { ...p, amount: Number(p.amount || 0) + Number(amount) }
+              : p
+          )
+          
+          const newTotalAmount = updatedParticipants.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+          
+          return {
+            participants: updatedParticipants,
+            totalAmount: newTotalAmount
+          }
+        }
+        
+        return state
+      }),
+
+      // Revert optimistic update if bid fails
+      revertOptimisticBid: (participantId: string, amount: number) => set((state) => {
+        const participant = state.participants.find(p => p.id === participantId)
+        
+        if (participant) {
+          const updatedParticipants = state.participants.map(p => 
+            p.id === participantId 
+              ? { ...p, amount: Number(p.amount || 0) - Number(amount) }
+              : p
+          )
+          
+          const newTotalAmount = updatedParticipants.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+          
+          return {
+            participants: updatedParticipants,
+            totalAmount: newTotalAmount
+          }
+        }
+        
+        return state
+      }),
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
       setRtReady: (ready) => set({ rtReady: ready }),

@@ -29,19 +29,25 @@ export function useRealTime(sessionId: string | null) {
           table: 'participants',
           filter: `session_id=eq.${sessionId}`
         },
-        (payload) => {
+        (payload: any) => {
           console.log('Participant change:', payload)
           
-          switch (payload.eventType) {
-            case 'INSERT':
-              addParticipant(payload.new as Participant)
-              break
-            case 'UPDATE':
-              updateParticipant(payload.new as Participant)
-              break
-            case 'DELETE':
-              removeParticipant(payload.old.id)
-              break
+          try {
+            switch (payload.eventType) {
+              case 'INSERT':
+                addParticipant(payload.new as Participant)
+                break
+              case 'UPDATE':
+                updateParticipant(payload.new as Participant)
+                break
+              case 'DELETE':
+                removeParticipant(payload.old.id)
+                break
+              default:
+                console.warn('Unknown participant event type:', payload.eventType)
+            }
+          } catch (error) {
+            console.error('Error handling participant change:', error)
           }
         }
       )
@@ -55,13 +61,15 @@ export function useRealTime(sessionId: string | null) {
           table: 'bids',
           filter: `session_id=eq.${sessionId}`
         },
-        (payload) => {
+        (payload: any) => {
           console.log('New bid:', payload)
-          addBid(payload.new as Bid)
           
-          // Reload session to get updated amounts - use session code, not session ID
-          if (currentSession?.code) {
-            useSessionStore.getState().loadSession(currentSession.code)
+          try {
+            addBid(payload.new as Bid)
+            // The store now handles updating participant amounts and total amount
+            // No need to reload the entire session - this prevents continuous refresh
+          } catch (error) {
+            console.error('Error handling new bid:', error)
           }
         }
       )
@@ -70,6 +78,12 @@ export function useRealTime(sessionId: string | null) {
       .subscribe((status) => {
         console.log('Realtime status:', status)
         setRtReady(status === 'SUBSCRIBED')
+        
+        // Handle connection issues
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Real-time connection issue, attempting to reconnect...')
+          // The channel will automatically attempt to reconnect
+        }
       })
 
     channelRef.current = channel

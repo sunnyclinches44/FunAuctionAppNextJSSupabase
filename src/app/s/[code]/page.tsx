@@ -18,10 +18,7 @@ export default function SessionRoom() {
   const [myName, setMyName] = useState<string>('')
   const [myMobileNumber, setMyMobileNumber] = useState<string>('')
   const [isSavingName, setIsSavingName] = useState(false)
-  const [achievementToast, setAchievementToast] = useState<{
-    message: string
-    type: 'success' | 'achievement' | 'info'
-  } | null>(null)
+
 
   // Enhanced store hooks
   const { loadSession, joinSession, placeBid: storePlaceBid } = useSessionStore()
@@ -127,9 +124,7 @@ export default function SessionRoom() {
     }
     
     const success = await placeBid(amount, participantId)
-    if (success) {
-      await loadSession(code)
-    }
+    // No need to reload session - real-time updates will handle the UI updates
     return success
   }
 
@@ -149,40 +144,14 @@ export default function SessionRoom() {
     }
 
     const success = await placeCustomBid(amount, participantId)
-    if (success) {
-      await loadSession(code)
-    }
+    // No need to reload session - real-time updates will handle the UI updates
   }
 
   // Check if current user has joined
   const myRow = participants.find((p) => p.device_id === myDeviceId)
   const hasJoined = !!myRow
 
-  // Detect when someone becomes the highest bidder
-  useEffect(() => {
-    if (participants.length > 0) {
-      const highestBidder = participants.reduce((highest, current) => 
-        Number(current.amount || 0) > Number(highest.amount || 0) ? current : highest
-      , participants[0])
-
-      // Check if this is a new highest bidder (you can add more sophisticated logic here)
-      if (highestBidder && highestBidder.amount > 0) {
-        const isMyAchievement = highestBidder.device_id === myDeviceId
-        
-        if (isMyAchievement) {
-          setAchievementToast({
-            message: `🎉 Congratulations! You're now the highest bidder with $${highestBidder.amount}!`,
-            type: 'achievement'
-          })
-        } else {
-          setAchievementToast({
-            message: `🏆 ${highestBidder.display_name} is now leading with $${highestBidder.amount}!`,
-            type: 'info'
-          })
-        }
-      }
-    }
-  }, [participants, myDeviceId])
+  // Removed highest bidder detection and achievement toasts
 
   if (isLoading) {
     return (
@@ -242,10 +211,8 @@ export default function SessionRoom() {
           onCustomAmountChange={updateCustomAmount}
           onCustomAmountSubmit={handleCustomBidSubmit}
           onCustomAmountCancel={() => setCustomInput(null)}
-          totalAmount={totalAmount}
-          sessionCode={code}
-          achievementToast={achievementToast}
-          onCloseToast={() => setAchievementToast(null)}
+                     totalAmount={totalAmount}
+           sessionCode={code}
         />
       </ErrorBoundary>
       <ModernFooter />

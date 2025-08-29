@@ -8,10 +8,10 @@ interface LeaderboardProps {
 const Leaderboard = memo(function Leaderboard({ participants }: LeaderboardProps) {
   if (participants.length === 0) return null
 
-  // Sort participants by amount (highest first)
+  // Sort participants by amount (highest first) and show only top 3
   const sortedParticipants = [...participants].sort((a, b) => 
     Number(b.amount || 0) - Number(a.amount || 0)
-  ).slice(0, 5) // Show top 5 for better competition
+  ).slice(0, 3) // Show only top 3 users
 
   const getRankStyle = (rank: number) => {
     switch (rank) {
@@ -51,8 +51,6 @@ const Leaderboard = memo(function Leaderboard({ participants }: LeaderboardProps
       case 1: return '🥇'
       case 2: return '🥈'
       case 3: return '🥉'
-      case 4: return '🏅'
-      case 5: return '🏅'
       default: return '🏅'
     }
   }
@@ -62,7 +60,7 @@ const Leaderboard = memo(function Leaderboard({ participants }: LeaderboardProps
       {/* Header */}
       <div className="text-center mb-4">
         <h3 className="text-xl font-bold text-slate-200 mb-1">Leaderboard</h3>
-        <p className="text-slate-400 text-sm">Top performers in this auction</p>
+        <p className="text-slate-400 text-sm">Top 3 performers in this auction</p>
       </div>
       
       {/* Compact Table Layout */}
@@ -102,14 +100,7 @@ const Leaderboard = memo(function Leaderboard({ participants }: LeaderboardProps
         })}
       </div>
       
-      {/* Total participants info */}
-      {participants.length > 5 && (
-        <div className="text-center mt-4 p-3 bg-slate-700/30 rounded-xl border border-slate-600/40">
-          <div className="text-sm text-slate-300 font-medium">
-            +{participants.length - 5} more participants competing
-          </div>
-        </div>
-      )}
+
     </div>
   )
 })

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useSessionStore } from '@/store/useSessionStore'
 
 export interface BiddingState {
@@ -14,7 +14,10 @@ export function useBidding(sessionCode: string, deviceId: string) {
     customAmount: ''
   })
 
-  const { placeBid: storePlaceBid } = useSessionStore()
+  // Track pending bids to prevent race conditions
+  const pendingBidsRef = useRef<Set<string>>(new Set())
+  
+  const { placeBid: storePlaceBid, addOptimisticBid, revertOptimisticBid } = useSessionStore()
 
   const placeBid = useCallback(async (amount: number, participantId: string) => {
     if (!sessionCode || !deviceId) {
@@ -22,14 +25,28 @@ export function useBidding(sessionCode: string, deviceId: string) {
       return false
     }
 
+    // Prevent duplicate bids for the same participant
+    if (pendingBidsRef.current.has(participantId)) {
+      console.log('Bid already in progress for participant:', participantId)
+      return false
+    }
+
     console.log('Placing bid:', { amount, participantId, sessionCode, deviceId })
+    
+    // Add to pending bids to prevent race conditions
+    pendingBidsRef.current.add(participantId)
     setBiddingState(prev => ({ ...prev, isPlacingBid: participantId }))
+    
+    // Optimistic update for immediate UI feedback
+    addOptimisticBid(participantId, amount)
     
     try {
       const success = await storePlaceBid(sessionCode, deviceId, amount)
       console.log('Bid result:', success)
 
       if (!success) {
+        // Revert optimistic update on failure
+        revertOptimisticBid(participantId, amount)
         alert('Failed to place bid. Please try again.')
         return false
       }
@@ -37,27 +54,45 @@ export function useBidding(sessionCode: string, deviceId: string) {
       return true
     } catch (error) {
       console.error('Error placing bid:', error)
+      // Revert optimistic update on error
+      revertOptimisticBid(participantId, amount)
       alert('Failed to place bid. Please try again.')
       return false
     } finally {
+      // Remove from pending bids
+      pendingBidsRef.current.delete(participantId)
       setBiddingState(prev => ({ ...prev, isPlacingBid: null }))
     }
-  }, [sessionCode, deviceId, storePlaceBid])
+  }, [sessionCode, deviceId, storePlaceBid, addOptimisticBid, revertOptimisticBid])
 
   const placeCustomBid = useCallback(async (amount: number, participantId: string) => {
     if (!sessionCode || !deviceId) return false
 
+    // Prevent duplicate bids for the same participant
+    if (pendingBidsRef.current.has(participantId)) {
+      console.log('Custom bid already in progress for participant:', participantId)
+      return false
+    }
+
     setBiddingState(prev => ({ ...prev, isPlacingBid: participantId }))
+    
+    // Add to pending bids
+    pendingBidsRef.current.add(participantId)
+    
+    // Optimistic update
+    addOptimisticBid(participantId, amount)
     
     try {
       const success = await storePlaceBid(sessionCode, deviceId, amount)
 
       if (!success) {
+        // Revert optimistic update on failure
+        revertOptimisticBid(participantId, amount)
         alert('Failed to place bid. Please try again.')
         return false
       }
 
-      // Clear custom input
+      // Clear custom input on success
       setBiddingState(prev => ({ 
         ...prev, 
         showCustomInput: null, 
@@ -68,12 +103,16 @@ export function useBidding(sessionCode: string, deviceId: string) {
       return true
     } catch (error) {
       console.error('Error placing custom bid:', error)
+      // Revert optimistic update on error
+      revertOptimisticBid(participantId, amount)
       alert('Failed to place bid. Please try again.')
       return false
     } finally {
+      // Remove from pending bids
+      pendingBidsRef.current.delete(participantId)
       setBiddingState(prev => ({ ...prev, isPlacingBid: null }))
     }
-  }, [sessionCode, deviceId, storePlaceBid])
+  }, [sessionCode, deviceId, storePlaceBid, addOptimisticBid, revertOptimisticBid])
 
   const setCustomInput = useCallback((participantId: string | null, amount: string = '') => {
     setBiddingState(prev => ({ 
@@ -87,11 +126,17 @@ export function useBidding(sessionCode: string, deviceId: string) {
     setBiddingState(prev => ({ ...prev, customAmount: amount }))
   }, [])
 
+  // Check if a participant can bid (not currently bidding)
+  const canBid = useCallback((participantId: string) => {
+    return !pendingBidsRef.current.has(participantId) && biddingState.isPlacingBid !== participantId
+  }, [biddingState.isPlacingBid])
+
   return {
     ...biddingState,
     placeBid,
     placeCustomBid,
     setCustomInput,
-    updateCustomAmount
+    updateCustomAmount,
+    canBid
   }
 }
