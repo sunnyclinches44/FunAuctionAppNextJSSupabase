@@ -37,7 +37,8 @@ export default function SessionRoom() {
     placeBid, 
     placeCustomBid, 
     setCustomInput, 
-    updateCustomAmount 
+    updateCustomAmount,
+    undoBid
   } = useBidding(code && myDeviceId ? code : '', myDeviceId || '')
 
   // Real-time updates
@@ -147,6 +148,24 @@ export default function SessionRoom() {
     // No need to reload session - real-time updates will handle the UI updates
   }
 
+  // Handle undo bid
+  const handleUndoBid = async (participantId: string) => {
+    if (!hasJoined) {
+      alert('Please join the session first before undoing bids.')
+      return false
+    }
+    
+    if (!confirm('Are you sure you want to undo your last bid? This action cannot be reversed.')) {
+      return false
+    }
+    
+    const success = await undoBid(participantId)
+    if (success) {
+      alert('Bid successfully undone!')
+    }
+    return success
+  }
+
   // Check if current user has joined
   const myRow = participants.find((p) => p.device_id === myDeviceId)
   const hasJoined = !!myRow
@@ -205,14 +224,15 @@ export default function SessionRoom() {
           displayName={myRow?.display_name}
           onPlaceBid={handlePlaceBid}
           onCustomBid={(participantId: string) => setCustomInput(participantId)}
+          onUndoBid={handleUndoBid}
           isPlacingBid={isPlacingBid}
           showCustomInput={showCustomInput}
           customAmount={customAmount}
           onCustomAmountChange={updateCustomAmount}
           onCustomAmountSubmit={handleCustomBidSubmit}
           onCustomAmountCancel={() => setCustomInput(null)}
-                     totalAmount={totalAmount}
-           sessionCode={code}
+          totalAmount={totalAmount}
+          sessionCode={code}
         />
       </ErrorBoundary>
       <ModernFooter />

@@ -119,9 +119,21 @@ export const useSessionStore = create<SessionState>()(
         const participant = state.participants.find(p => p.id === bid.participant_id)
         
         if (participant) {
-          // Participant amounts are already updated by database - don't double-add
-          // Just add the bid to the bids array
-          return { bids: [bid, ...state.bids] }
+          // Update the participant's amount
+          const updatedParticipants = state.participants.map(p => 
+            p.id === bid.participant_id 
+              ? { ...p, amount: Number(p.amount || 0) + Number(bid.delta || 0) }
+              : p
+          )
+          
+          // Calculate new total amount
+          const newTotalAmount = updatedParticipants.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+          
+          return {
+            bids: [bid, ...state.bids],
+            participants: updatedParticipants,
+            totalAmount: newTotalAmount
+          }
         }
         
         // If participant not found, just add the bid
@@ -349,3 +361,4 @@ export const useTotalAmount = () => useSessionSelector(state => state.totalAmoun
 export const useIsLoading = () => useSessionSelector(state => state.isLoading)
 export const useError = () => useSessionSelector(state => state.error)
 export const useRtReady = () => useSessionSelector(state => state.rtReady)
+

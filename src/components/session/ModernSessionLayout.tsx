@@ -21,6 +21,7 @@ interface ModernSessionLayoutProps {
   displayName?: string
   onPlaceBid: (amount: number, participantId: string) => Promise<boolean>
   onCustomBid: (participantId: string) => void
+  onUndoBid: (participantId: string) => Promise<boolean>
   isPlacingBid: string | null
   showCustomInput: string | null
   customAmount: string
@@ -46,14 +47,15 @@ export default function ModernSessionLayout({
   displayName,
   onPlaceBid,
   onCustomBid,
+  onUndoBid,
   isPlacingBid,
   showCustomInput,
   customAmount,
   onCustomAmountChange,
   onCustomAmountSubmit,
-      onCustomAmountCancel,
-    totalAmount,
-    sessionCode
+  onCustomAmountCancel,
+  totalAmount,
+  sessionCode
 }: ModernSessionLayoutProps) {
   const [activeTab, setActiveTab] = useState<'participants' | 'leaderboard' | 'history'>('participants')
 
@@ -189,6 +191,7 @@ export default function ModernSessionLayout({
                   currentDeviceId={myDeviceId}
                   onPlaceBid={onPlaceBid}
                   onCustomBid={onCustomBid}
+                  onUndoBid={onUndoBid}
                   isPlacingBid={isPlacingBid}
                   showCustomInput={showCustomInput}
                   customAmount={customAmount}
@@ -225,7 +228,7 @@ export default function ModernSessionLayout({
                   </div>
                   <h3 className="text-xl font-bold text-slate-200">Bid History</h3>
                 </div>
-                <BidsHistory sessionCode={sessionCode} />
+                <BidsHistory sessionCode={sessionCode} isVisible={activeTab === 'history'} />
               </div>
             </div>
           )}
@@ -274,6 +277,7 @@ export default function ModernSessionLayout({
                 currentDeviceId={myDeviceId}
                 onPlaceBid={onPlaceBid}
                 onCustomBid={onCustomBid}
+                onUndoBid={onUndoBid}
                 isPlacingBid={isPlacingBid}
                 showCustomInput={showCustomInput}
                 customAmount={customAmount}
@@ -295,7 +299,7 @@ export default function ModernSessionLayout({
                   </div>
                   <h3 className="text-xl font-bold text-slate-200">Bid History</h3>
                 </div>
-                <BidsHistory sessionCode={sessionCode} />
+                <BidsHistory sessionCode={sessionCode} isVisible={true} />
               </div>
 
               {/* Grand Total */}
@@ -357,6 +361,7 @@ export default function ModernSessionLayout({
                   currentDeviceId={myDeviceId}
                   onPlaceBid={onPlaceBid}
                   onCustomBid={onCustomBid}
+                  onUndoBid={onUndoBid}
                   isPlacingBid={isPlacingBid}
                   showCustomInput={showCustomInput}
                   customAmount={customAmount}
@@ -373,7 +378,7 @@ export default function ModernSessionLayout({
                   </div>
                   <h3 className="text-xl font-bold text-slate-200">Bid History</h3>
                 </div>
-                <BidsHistory sessionCode={sessionCode} />
+                <BidsHistory sessionCode={sessionCode} isVisible={true} />
               </div>
 
               <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 backdrop-blur-xl rounded-3xl p-6 shadow-2xl">
