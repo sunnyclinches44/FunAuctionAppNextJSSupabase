@@ -81,15 +81,25 @@ const ParticipantJoin = memo(function ParticipantJoin({
         <input
           value={myName}
           onChange={(e) => onNameChange(e.target.value)}
-          placeholder="e.g., Sandeep"
+          placeholder="Enter Your Name"
           className="w-full bg-white/5 border border-[var(--border)] rounded-xl px-3 py-2 outline-none"
           disabled={hasJoined}
         />
       </div>
       
       <div>
-        <div className="text-sm text-slate-400 mb-2">
-          Mobile number <span className="text-red-400">*</span>
+        <div className="text-sm text-slate-400 mb-2 flex items-center gap-2">
+          <span>Mobile number</span>
+          <span className="text-red-400">*</span>
+          <div className="group relative">
+            <div className="w-4 h-4 bg-blue-500/20 border border-blue-500/30 rounded-full flex items-center justify-center cursor-help">
+              <span className="text-blue-400 text-xs font-bold">i</span>
+            </div>
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-xs text-slate-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 shadow-lg">
+              Mobile number is only visible to admins, not to other participants
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+            </div>
+          </div>
         </div>
         <input
           type="tel"
