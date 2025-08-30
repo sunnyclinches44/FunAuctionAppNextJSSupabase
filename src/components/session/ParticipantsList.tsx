@@ -65,8 +65,6 @@ const ParticipantsList = memo(function ParticipantsList({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-center text-slate-300">Participants</h3>
-      
       {/* Current User Section - Always at Top */}
       {sortedParticipantsForDisplay.filter(p => p.device_id && p.device_id === currentDeviceId).length > 0 && (
         <>
@@ -219,12 +217,22 @@ const ParticipantsList = memo(function ParticipantsList({
                     min={MIN_BID_AMOUNT}
                     step="1"
                     value={customAmount}
-                    onChange={(e) => onCustomAmountChange(e.target.value)}
+                    onChange={(e) => {
+                      // Only allow integers - filter out decimal input
+                      const value = e.target.value
+                      if (value === '' || /^\d+$/.test(value)) {
+                        onCustomAmountChange(value)
+                      }
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         onCustomAmountSubmit(p.id)
                       } else if (e.key === 'Escape') {
                         onCustomAmountCancel()
+                      }
+                      // Prevent decimal input (period/dot key)
+                      if (e.key === '.' || e.key === ',') {
+                        e.preventDefault()
                       }
                     }}
                     placeholder="Enter amount..."
