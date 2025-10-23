@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "jest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -20,13 +21,19 @@
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^15.4.7",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.12.7",
     "@types/react": "^18.2.79",
     "autoprefixer": "^10.4.19",
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.5",
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.7",
+    "ts-jest": "^29.4.5",
     "typescript": "^5.4.5"
   }
 }
