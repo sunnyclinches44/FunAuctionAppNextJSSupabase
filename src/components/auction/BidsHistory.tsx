@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
 // Interface for the data returned by Supabase query
@@ -22,26 +22,21 @@ interface BidsHistoryProps {
 export default function BidsHistory({ 
   sessionCode, 
   isVisible = false, 
-  maxBids = 3 
+  maxBids = 8
 }: BidsHistoryProps) {
   const [bids, setBids] = useState<BidWithParticipant[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [lastLoaded, setLastLoaded] = useState<Date | null>(null)
+  // A ref, not state: the throttle has to be readable inside the callback
+  // without making the callback change identity and re-fire the effect.
+  const lastLoadedRef = useRef<number>(0)
 
-  // Only load bids when component is visible and we haven't loaded recently
-  const shouldLoadBids = () => {
-    if (!isVisible) return false
-    if (!lastLoaded) return true
-    
-    // Only reload if it's been more than 30 seconds
-    const timeSinceLastLoad = Date.now() - lastLoaded.getTime()
-    return timeSinceLastLoad > 30000
-  }
+  const loadBids = useCallback(async (force = false) => {
+    // Refresh at most every 30 seconds on its own, always when asked.
+    if (!force && lastLoadedRef.current && Date.now() - lastLoadedRef.current < 30000) {
+      return
+    }
 
-  const loadBids = useCallback(async () => {
-    if (!shouldLoadBids()) return
-    
     setIsLoading(true)
     setError(null)
     
@@ -67,7 +62,7 @@ export default function BidsHistory({
       if (error) throw error
       
       setBids(data || [])
-      setLastLoaded(new Date())
+      lastLoadedRef.current = Date.now()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load bid history')
     } finally {
@@ -88,22 +83,14 @@ export default function BidsHistory({
   }
 
   if (isLoading) {
-    return (
-      <div className="text-center py-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-        <p className="text-slate-400 mt-2">Loading bid history...</p>
-      </div>
-    )
+    return <p className="text-sm text-ink-3 m-0 py-2">Loading recent bids…</p>
   }
 
   if (error) {
     return (
-      <div className="text-center py-4">
-        <p className="text-red-400 text-sm">{error}</p>
-        <button 
-          onClick={loadBids}
-          className="mt-2 text-blue-400 hover:text-blue-300 text-sm"
-        >
+      <div className="py-2 flex flex-col items-start gap-2">
+        <p className="text-sm text-danger m-0">{error}</p>
+        <button onClick={() => loadBids(true)} className="btn btn-ghost">
           Try again
         </button>
       </div>
@@ -111,44 +98,38 @@ export default function BidsHistory({
   }
 
   if (bids.length === 0) {
-    return (
-      <div className="text-center py-4">
-        <p className="text-slate-400 text-sm">No bids yet</p>
-      </div>
-    )
+    return <p className="text-sm text-ink-3 m-0 py-2">No bids yet.</p>
   }
 
   return (
-    <div className="space-y-3">
-      <h4 className="text-sm font-medium text-slate-300 mb-3">Recent Bids</h4>
-      {bids.map((bid) => (
-        <div key={bid.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
-              <span className="text-blue-400 text-sm">💰</span>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col">
+        {bids.map((bid) => (
+          <div
+            key={bid.id}
+            className="grid grid-cols-[1fr_auto] items-baseline gap-3 py-3 border-b border-hairline last:border-b-0"
+          >
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-[0.9rem] text-ink truncate">
+                {bid.participants[0]?.display_name || 'Someone'}
+              </span>
+              <span className="num text-xs text-ink-3">
+                {new Date(bid.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </span>
             </div>
-            <div>
-              <p className="text-slate-200 text-sm font-medium">
-                {bid.participants[0]?.display_name || 'Unknown'}
-              </p>
-              <p className="text-slate-400 text-xs">
-                {new Date(bid.created_at).toLocaleTimeString()}
-              </p>
-            </div>
+            <span className="num text-[0.9rem] text-ink">
+              +${Number(bid.delta).toLocaleString()}
+            </span>
           </div>
-          <div className="text-right">
-            <p className="text-green-400 font-semibold">+${bid.delta}</p>
-          </div>
-        </div>
-      ))}
-      
-      {/* Refresh button for manual refresh */}
-      <button 
-        onClick={loadBids}
-        className="w-full mt-3 py-2 px-3 bg-slate-700/50 hover:bg-slate-700/70 text-slate-300 text-sm rounded-lg transition-colors"
+        ))}
+      </div>
+
+      <button
+        onClick={() => loadBids(true)}
+        className="btn btn-ghost self-start"
         disabled={isLoading}
       >
-        {isLoading ? 'Refreshing...' : 'Refresh History'}
+        {isLoading ? 'Refreshing…' : 'Refresh'}
       </button>
     </div>
   )

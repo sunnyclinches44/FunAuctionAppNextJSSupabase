@@ -19,6 +19,11 @@ export function useBidding(sessionCode: string, deviceId: string) {
   
   const { placeBid: storePlaceBid, undoBidAsync } = useSessionStore()
 
+  // The round gate lives in the database, so when a bid is refused the useful
+  // message is the one it sent back rather than a generic failure.
+  const lastStoreError = (fallback: string) =>
+    useSessionStore.getState().error || fallback
+
   const placeBid = useCallback(async (amount: number, participantId: string) => {
     if (!sessionCode || !deviceId) {
       console.error('Missing sessionCode or deviceId:', { sessionCode, deviceId })
@@ -42,7 +47,7 @@ export function useBidding(sessionCode: string, deviceId: string) {
       console.log('Bid result:', success)
 
       if (!success) {
-        alert('Failed to place bid. Please try again.')
+        alert(lastStoreError('Could not place that bid. Please try again.'))
         return false
       }
 
@@ -76,7 +81,7 @@ export function useBidding(sessionCode: string, deviceId: string) {
       const success = await storePlaceBid(sessionCode, deviceId, amount)
 
       if (!success) {
-        alert('Failed to place bid. Please try again.')
+        alert(lastStoreError('Could not place that bid. Please try again.'))
         return false
       }
 

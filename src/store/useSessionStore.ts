@@ -1,11 +1,13 @@
 import { create } from 'zustand'
 import { devtools, subscribeWithSelector } from 'zustand/middleware'
 import { supabase } from '@/lib/supabaseClient'
+import { FIRST_ROUND, normalizeRound, type RoundNumber } from '@/lib/constants'
 
 export interface Session {
   id: string
   code: string
   title: string
+  current_round: RoundNumber
 }
 
 export interface Participant {
@@ -55,13 +57,15 @@ interface SessionState {
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setRtReady: (ready: boolean) => void
+  setRound: (round: number) => void
   reset: () => void
-  
+
   // Async actions
   loadSession: (sessionCode: string) => Promise<void>
   joinSession: (sessionCode: string, displayName: string, deviceId: string, mobileNumber: string) => Promise<boolean>
   placeBid: (sessionCode: string, deviceId: string, amount: number) => Promise<boolean>
   undoBidAsync: (sessionCode: string, deviceId: string) => Promise<boolean>
+  advanceRound: (sessionCode: string, round: number) => Promise<boolean>
 }
 
 const initialState = {
@@ -203,6 +207,11 @@ export const useSessionStore = create<SessionState>()(
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
       setRtReady: (ready) => set({ rtReady: ready }),
+      setRound: (round) => set((state) => (
+        state.currentSession
+          ? { currentSession: { ...state.currentSession, current_round: normalizeRound(round) } }
+          : state
+      )),
       reset: () => set(initialState),
       
       // Async actions
@@ -235,7 +244,8 @@ export const useSessionStore = create<SessionState>()(
               currentSession: {
                 id: data.session.id,
                 code: data.session.code,
-                title: data.session.title
+                title: data.session.title,
+                current_round: normalizeRound(data.session.current_round ?? FIRST_ROUND)
               },
               participants: data.participants || [],
               participantCount: data.participant_count || 0,
@@ -283,12 +293,38 @@ export const useSessionStore = create<SessionState>()(
             p_device_id: deviceId,
             p_amount: amount
           })
-          
+
           if (error) throw error
+          set({ error: null })
           return true
         } catch (error) {
-          set({ 
-            error: error instanceof Error ? error.message : 'Failed to place bid' 
+          // The database is what enforces the round gate, so its message is the
+          // useful one ("$50 is not available in round 1"). Keep it verbatim.
+          set({
+            error: error instanceof Error ? error.message : 'Failed to place bid'
+          })
+          return false
+        }
+      },
+
+      advanceRound: async (sessionCode, round) => {
+        try {
+          const { data, error } = await supabase.rpc('set_session_round', {
+            p_session_code: sessionCode,
+            p_round: normalizeRound(round)
+          })
+
+          if (error) throw error
+
+          // Update locally too. The realtime UPDATE will also arrive, but the
+          // admin's own tab should not wait for the round trip.
+          if (data?.success) {
+            get().setRound(data.current_round)
+          }
+          return true
+        } catch (error) {
+          set({
+            error: error instanceof Error ? error.message : 'Failed to change the round'
           })
           return false
         }
@@ -349,3 +385,5 @@ export const useTotalAmount = () => useSessionSelector(state => state.totalAmoun
 export const useIsLoading = () => useSessionSelector(state => state.isLoading)
 export const useError = () => useSessionSelector(state => state.error)
 export const useRtReady = () => useSessionSelector(state => state.rtReady)
+export const useCurrentRound = () =>
+  useSessionSelector(state => state.currentSession?.current_round ?? FIRST_ROUND)

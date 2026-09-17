@@ -3,10 +3,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { getOrCreateDeviceId, getDisplayName, saveDisplayName } from '@/lib/utils'
-import { useSessionStore, useCurrentSession, useParticipants, useTotalAmount, useIsLoading, useError, useRtReady } from '@/store/useSessionStore'
+import { AUCTION_CONFIG } from '@/lib/constants'
+import { useSessionStore, useCurrentSession, useParticipants, useTotalAmount, useIsLoading, useError, useRtReady, useCurrentRound } from '@/store/useSessionStore'
 import { useRealTime } from '@/hooks/useRealTime'
 import { useBidding } from '@/hooks/useBidding'
 import ModernSessionLayout from '@/components/session/ModernSessionLayout'
+import { validateMobileNumber } from '@/components/session/ParticipantJoin'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import ErrorBoundary from '@/components/layout/ErrorBoundary'
 import Navigation from '@/components/layout/Navigation'
@@ -28,6 +30,7 @@ export default function SessionRoom() {
   const error = useError()
   const rtReady = useRtReady()
   const totalAmount = useTotalAmount()
+  const currentRound = useCurrentRound()
 
   // Bidding hook - only initialize when we have both code and deviceId
   const { 
@@ -64,36 +67,10 @@ export default function SessionRoom() {
   const handleSaveName = async () => {
     if (!myName.trim() || !code) return
     
-    // Validate mobile number
-    if (!myMobileNumber.trim()) {
-      alert('Please enter your mobile number')
-      return
-    }
-
-    // Enhanced mobile number validation
-    const validateMobileNumber = (number: string): boolean => {
-      const cleanNumber = number.replace(/[\s\-\(\)]/g, '')
-      
-      // Australian mobile number patterns
-      const auPatterns = [
-        /^\+614\d{8}$/,           // +61 4XX XXX XXX
-        /^614\d{8}$/,             // 61 4XX XXX XXX (without +)
-        /^04\d{8}$/,              // 04XX XXX XXX
-        /^4\d{8}$/,               // 4XX XXX XXX (without 0)
-      ]
-      
-      // International patterns (common formats)
-      const internationalPatterns = [
-        /^\+[1-9]\d{1,14}$/,     // +[country code][number] (E.164 format)
-        /^00[1-9]\d{1,14}$/,     // 00[country code][number] (international format)
-      ]
-      
-      return auPatterns.some(pattern => pattern.test(cleanNumber)) ||
-             internationalPatterns.some(pattern => pattern.test(cleanNumber))
-    }
-
+    // Validate mobile number. The form already blocks this, so reaching it
+    // means something was pasted in or the button was driven directly.
     if (!validateMobileNumber(myMobileNumber.trim())) {
-      alert('Please enter a valid mobile number (e.g., +61 4XX XXX XXX or 04XX XXX XXX)')
+      alert('Enter a valid mobile number, for example 04XX XXX XXX or +61 4XX XXX XXX')
       return
     }
 
@@ -137,14 +114,14 @@ export default function SessionRoom() {
     }
     
     if (!customAmount) return
-    
+
     const amount = Number(customAmount)
-    if (amount < 5 || amount > 10000) {
-      alert('Please enter an amount between $5 and $10,000')
+    if (amount < AUCTION_CONFIG.MIN_BID_AMOUNT || amount > AUCTION_CONFIG.MAX_BID_AMOUNT) {
+      alert(`Enter an amount between $${AUCTION_CONFIG.MIN_BID_AMOUNT} and $${AUCTION_CONFIG.MAX_BID_AMOUNT.toLocaleString()}`)
       return
     }
 
-    const success = await placeCustomBid(amount, participantId)
+    await placeCustomBid(amount, participantId)
     // No need to reload session - real-time updates will handle the UI updates
   }
 
@@ -176,9 +153,9 @@ export default function SessionRoom() {
     return (
       <main className="min-h-screen">
         <Navigation />
-        <div className="text-center py-8 pt-24">
+        <div className="text-center py-16 pt-32">
           <LoadingSpinner size="lg" className="mx-auto mb-4" />
-          <p className="text-slate-400">Loading session...</p>
+          <p className="text-ink-3">Loading the session…</p>
         </div>
         <ModernFooter />
       </main>
@@ -189,15 +166,11 @@ export default function SessionRoom() {
     return (
       <main className="min-h-screen">
         <Navigation />
-        <div className="text-center py-8 pt-24">
-          <div className="text-6xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-red-400 mb-2">Error Loading Session</h2>
-          <p className="text-red-300 mb-4">{error}</p>
-          <button
-            onClick={() => loadSession(code)}
-            className="btn bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg"
-          >
-            Try Again
+        <div className="max-w-md mx-auto px-4 py-16 pt-32 text-center">
+          <h2 className="text-xl mb-2">This session would not load</h2>
+          <p className="text-ink-2 mb-6">{error}</p>
+          <button onClick={() => loadSession(code)} className="btn btn-primary">
+            Try again
           </button>
         </div>
         <ModernFooter />
@@ -222,6 +195,7 @@ export default function SessionRoom() {
           isSaving={isSavingName}
           hasJoined={hasJoined}
           displayName={myRow?.display_name}
+          currentRound={currentRound}
           onPlaceBid={handlePlaceBid}
           onCustomBid={(participantId: string) => setCustomInput(participantId)}
           onUndoBid={handleUndoBid}

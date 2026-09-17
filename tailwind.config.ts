@@ -1,6 +1,11 @@
 import type { Config } from 'tailwindcss'
 
+/**
+ * Colours are CSS variables defined in src/app/globals.css so the light (paper)
+ * and dark (navy) SSM One themes swap without Tailwind emitting two class sets.
+ */
 const config: Config = {
+  darkMode: ['class', '[data-theme="dark"]'],
   content: [
     "./src/app/**/*.{ts,tsx}",
     "./src/components/**/*.{ts,tsx}",
@@ -8,12 +13,32 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      colors: {
+        paper: "var(--paper)",
+        ivory: "var(--ivory)",
+        cloud: "var(--cloud)",
+        accent: "var(--accent)",
+        "accent-ink": "var(--accent-ink)",
+        ink: "var(--ink)",
+        "ink-2": "var(--ink-2)",
+        "ink-3": "var(--ink-3)",
+        hairline: "var(--hairline)",
+        live: "var(--live)",
+        "live-bg": "var(--live-bg)",
+        danger: "var(--danger)",
+        "danger-bg": "var(--danger-bg)",
+      },
       fontFamily: {
-        sans: ["Plus Jakarta Sans", "ui-sans-serif", "system-ui"],
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "Georgia", "Times New Roman", "serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+      },
+      borderRadius: {
+        DEFAULT: "8px",
       },
       boxShadow: {
-        neon: "0 0 0 2px rgba(255,193,7,.25), 0 10px 26px rgba(255,193,7,.35), inset 0 -2px 6px rgba(0,0,0,.25)",
-        neonHover: "0 0 0 3px rgba(255,193,7,.35), 0 14px 36px rgba(255,193,7,.45), inset 0 -2px 8px rgba(0,0,0,.35)",
+        card: "0 1px 2px var(--shadow-1), 0 8px 24px var(--shadow-2)",
+        lift: "0 2px 4px var(--shadow-1), 0 18px 44px var(--shadow-2)",
       },
     },
   },
