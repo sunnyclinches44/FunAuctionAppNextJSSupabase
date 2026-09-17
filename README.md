@@ -134,17 +134,34 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ### **4. Database Setup**
 
-Run these two files in the Supabase SQL Editor, in order:
+**New Supabase project?** Run one file and you are done:
 
 ```
-1. src/supabase/master_schema.sql    # tables, indexes, RLS policies, base RPCs
-2. src/supabase/rounds_migration.sql # round column, round-aware RPCs, realtime
+src/supabase/complete_setup.sql
 ```
 
-Both are safe to re-run. On an existing database that predates rounds, the
-second file is all you need. It also puts the `sessions` table on the
-`supabase_realtime` publication, which is what lets an opened round reach every
-phone without a refresh.
+Paste the whole thing into the Supabase SQL Editor and press Run. It creates the
+tables, indexes, RLS policies and every RPC function, and it puts all three
+tables on the `supabase_realtime` publication — which is what makes bids land
+live and lets an opened round reach every phone without a refresh. It ends with
+a verification query; every row should read `OK`.
+
+It is safe to run more than once, so if a run is interrupted, just run it again.
+
+**Existing database from before rounds?** Run `src/supabase/rounds_migration.sql`
+instead. It adds only what rounds need and leaves your data alone.
+
+`master_schema.sql` is the older pre-rounds setup file, kept for reference.
+`complete_setup.sql` supersedes it.
+
+Then, still in the dashboard:
+
+- **Settings → API**: copy the Project URL and the `anon` public key into
+  `.env.local`.
+- **Authentication → Providers → Email**: enable Email, since the organiser
+  signs in with a magic link.
+- **Authentication → URL Configuration**: add your site URL, and
+  `http://localhost:3000` for local testing, to the redirect allow list.
 
 ### **5. Development**
 ```bash
@@ -239,7 +256,7 @@ nav; the choice is remembered in `localStorage`.
 ### **v3.0 - Rounds and the SSM One theme**
 - ✅ Three-round bidding ladder, enforced in the database
 - ✅ Admin round control, with the change reaching every phone over realtime
-- ✅ Locked tiers stay visible so bidders can see what the next round brings
+- ✅ Later rounds stay hidden from bidders until the organiser opens them
 - ✅ Rebuilt on the SSM One brand system: paper light theme, navy dark theme
 - ✅ Removed the gradient and emoji-driven UI in favour of type and hairlines
 
