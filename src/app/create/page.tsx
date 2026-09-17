@@ -5,8 +5,9 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import Navigation from '@/components/layout/Navigation'
 import ModernFooter from '@/components/layout/ModernFooter'
+import { ROUNDS } from '@/lib/constants'
 
-// IMPORTANT: qrcode.react exports named components. Pick one:
+// qrcode.react exports named components.
 const QRCode = dynamic(() => import('qrcode.react').then(m => m.QRCodeSVG), { ssr: false })
 
 function randomCode(len = 6) {
@@ -17,6 +18,7 @@ export default function CreateSessionPage() {
   const [title, setTitle] = useState('Fun Auction')
   const [code, setCode] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [origin, setOrigin] = useState('')
   const shareLink = code ? `${origin}/s/${code}` : ''
 
@@ -28,7 +30,12 @@ export default function CreateSessionPage() {
     setCreating(true)
     const c = randomCode(7)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { alert('Please sign in first.'); setCreating(false); return }
+    if (!user) {
+      alert('Sign in on the admin page first.')
+      setCreating(false)
+      return
+    }
+    // Every session opens in round 1; the column defaults to it.
     const { error } = await supabase.from('sessions').insert({ code: c, title, created_by: user.id })
     setCreating(false)
     if (error) { alert(error.message); return }
@@ -38,79 +45,104 @@ export default function CreateSessionPage() {
   async function copyLink() {
     if (!shareLink) return
     await navigator.clipboard.writeText(shareLink)
-    alert('Link copied!')
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <main className="min-h-screen flex flex-col">
       <Navigation />
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-amber-400/10 to-orange-500/10 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute bottom-20 right-10 w-40 h-40 bg-gradient-to-br from-blue-400/10 to-cyan-500/10 rounded-full blur-3xl animate-float" style={{animationDelay: '1s'}}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-green-400/5 to-emerald-500/5 rounded-full blur-3xl animate-float" style={{animationDelay: '2s'}}></div>
-      </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 max-w-xl mx-auto px-4 py-8 pt-24">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-slate-200 mb-4">
-            Create New
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">
-              Auction Session
-            </span>
-          </h1>
-          <p className="text-lg text-slate-400 max-w-md mx-auto">
-            Set up a new auction session and get a unique link to share with participants
+      <div className="flex-1 max-w-lg w-full mx-auto px-4 py-12 pt-28">
+        <div className="flex flex-col gap-2 mb-8">
+          <span className="label">Create</span>
+          <h1 className="text-3xl sm:text-4xl">Start a new auction</h1>
+          <p className="text-ink-2 m-0">
+            You get a code and a QR code to share. The auction opens in round 1.
           </p>
         </div>
 
-        <div className="card p-6 space-y-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
-          <div>
-            <label className="block text-slate-300 mb-2 font-medium">Session Title</label>
+        <div className="card p-6 flex flex-col gap-5">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="session-title" className="label">
+              What is this auction for?
+            </label>
             <input
+              id="session-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="bg-white/5 border border-white/20 rounded-xl px-4 py-3 w-full outline-none text-slate-200 placeholder-slate-500 focus:border-amber-400/50 transition-colors"
-              placeholder="Enter session title"
+              className="field"
+              placeholder="Ganesh Chaturthi Laddu Auction"
             />
           </div>
 
-          <button 
-            className="btn btn-primary px-6 py-3 w-full text-lg font-semibold" 
-            onClick={create} 
-            disabled={creating}
+          {/* What the rounds will do, so the organiser knows what they are running. */}
+          <div className="flex flex-col gap-2 pt-1">
+            <span className="label">The three rounds</span>
+            <ol className="flex flex-col gap-1.5 list-none p-0 m-0">
+              {ROUNDS.map((round) => (
+                <li key={round.n} className="grid grid-cols-[1.25rem_1fr] gap-2 text-sm">
+                  <span className="num text-ink-3">{round.n}</span>
+                  <span className="text-ink-2">
+                    <span className="text-ink">{round.name}</span>
+                    {' · '}
+                    {round.custom
+                      ? 'any amount from $5 to $10,000'
+                      : round.unlocks.map(a => `$${a}`).join(' and ') + ' unlock'}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <button
+            className="btn btn-primary"
+            onClick={create}
+            disabled={creating || !title.trim()}
           >
-            {creating ? 'Creating…' : '✨ Create & Get Link'}
+            {creating ? 'Creating…' : 'Create and get the link'}
           </button>
 
           {code && (
-            <div className="mt-6 space-y-4 animate-fade-in-up">
-              {/* Share link + copy */}
-              <div>
-                <div className="text-slate-300 mb-2 font-medium">Share link</div>
-                <div className="flex gap-2">
-                  <input
-                    readOnly
-                    value={shareLink}
-                    className="flex-1 bg-white/5 border border-white/20 rounded-xl px-4 py-3 outline-none text-slate-200"
-                  />
-                  <button className="btn btn-ghost px-4 py-3" onClick={copyLink}>📋 Copy</button>
-                  <Link href={`/s/${code}`} className="btn btn-primary px-4 py-3">🚀 Open</Link>
+            <div className="flex flex-col gap-5 pt-5 border-t border-hairline animate-rise">
+              <div className="flex flex-col gap-1.5">
+                <span className="label">Session code</span>
+                <span className="num display text-2xl">{code}</span>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="share-link" className="label">Share link</label>
+                <input
+                  id="share-link"
+                  readOnly
+                  value={shareLink}
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="field num text-sm"
+                />
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button className="btn" onClick={copyLink}>
+                    {copied ? 'Copied' : 'Copy link'}
+                  </button>
+                  <Link href={`/s/${code}`} className="btn btn-primary no-underline">
+                    Open the session
+                  </Link>
                 </div>
               </div>
 
-              {/* QR code */}
-              <div>
-                <div className="text-slate-300 mb-2 font-medium">QR code</div>
-                <div className="bg-white rounded-xl p-4 inline-block">
+              <div className="flex flex-col gap-2">
+                <span className="label">QR code</span>
+                <div className="bg-white rounded p-4 w-fit border border-hairline">
                   <QRCode value={shareLink} size={168} />
                 </div>
+                <p className="text-sm text-ink-3 m-0">
+                  Put this on the screen and people can join by pointing a camera at it.
+                </p>
               </div>
             </div>
           )}
         </div>
       </div>
+
       <ModernFooter />
     </main>
   )

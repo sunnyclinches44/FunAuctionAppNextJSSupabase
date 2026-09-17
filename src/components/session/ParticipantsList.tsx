@@ -1,10 +1,18 @@
 import { memo } from 'react'
-import { Participant } from '@/hooks/useSession'
-import { AUCTION_CONFIG } from '@/lib/constants'
+import { Participant } from '@/store/useSessionStore'
+import {
+  AUCTION_CONFIG,
+  ALL_PRESET_AMOUNTS,
+  amountsForRound,
+  customAllowed,
+  roundThatUnlocks,
+  normalizeRound
+} from '@/lib/constants'
 
 interface ParticipantsListProps {
   participants: Participant[]
   currentDeviceId: string
+  currentRound: number
   onPlaceBid: (amount: number, participantId: string) => Promise<boolean>
   onCustomBid: (participantId: string) => void
   onUndoBid: (participantId: string) => Promise<boolean>
@@ -16,9 +24,19 @@ interface ParticipantsListProps {
   onCustomAmountCancel: () => void
 }
 
+function LockGlyph() {
+  return (
+    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+      <rect x="5" y="11" width="14" height="9" rx="1.5" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  )
+}
+
 const ParticipantsList = memo(function ParticipantsList({
   participants,
   currentDeviceId,
+  currentRound,
   onPlaceBid,
   onCustomBid,
   onUndoBid,
@@ -29,332 +47,209 @@ const ParticipantsList = memo(function ParticipantsList({
   onCustomAmountSubmit,
   onCustomAmountCancel
 }: ParticipantsListProps) {
-  const { PRESET_AMOUNTS, MIN_BID_AMOUNT } = AUCTION_CONFIG
+  const { MIN_BID_AMOUNT, MAX_BID_AMOUNT } = AUCTION_CONFIG
+  const round = normalizeRound(currentRound)
+  const unlocked = amountsForRound(round)
+  const canBidCustom = customAllowed(round)
 
-  // Find the highest bidder
-  const highestBidder = participants.reduce((highest, current) => 
-    Number(current.amount || 0) > Number(highest.amount || 0) ? current : highest
-  , participants[0])
-
-  // Sort participants by amount for ranking
-  const sortedParticipants = [...participants].sort((a, b) => 
-    Number(b.amount || 0) - Number(a.amount || 0)
+  const ranked = [...participants].sort(
+    (a, b) => Number(b.amount || 0) - Number(a.amount || 0)
   )
+  const me = participants.find(p => p.device_id && p.device_id === currentDeviceId)
+  const others = ranked.filter(p => p.id !== me?.id)
+  const myRank = me ? ranked.findIndex(p => p.id === me.id) + 1 : 0
+  const leaderId = ranked[0]?.id
 
-  // Check if participant can bid (not currently bidding)
-  const canParticipantBid = (participantId: string) => {
-    return isPlacingBid !== participantId
+  const canParticipantBid = (participantId: string) => isPlacingBid !== participantId
+
+  const rankNote = (rank: number, total: number) => {
+    if (total <= 1) return 'First one in'
+    if (rank === 1) return 'Leading the room'
+    return `${rank}${rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th'} of ${total} bidders`
   }
 
-  // Sort participants: current user first, then others by amount
-  const sortedParticipantsForDisplay = [...participants].sort((a, b) => {
-    const aIsSelf = a.device_id && a.device_id === currentDeviceId
-    const bIsSelf = b.device_id && b.device_id === currentDeviceId
-    
-    // Current user always comes first
-    if (aIsSelf && !bIsSelf) return -1
-    if (!aIsSelf && bIsSelf) return 1
-    
-    // If both are current user or both are not, sort by amount
-    if (aIsSelf === bIsSelf) {
-      return Number(b.amount || 0) - Number(a.amount || 0)
-    }
-    
-    return 0
-  })
-
   return (
-    <div className="space-y-4">
-      {/* Current User Section - Always at Top */}
-      {sortedParticipantsForDisplay.filter(p => p.device_id && p.device_id === currentDeviceId).length > 0 && (
-        <>
-          <div className="text-center py-2">
-            <div className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-xl">
-              <span className="text-lg">👤</span>
-              <span className="text-sm font-medium text-blue-300">Your Bidding Interface</span>
+    <div className="flex flex-col gap-6">
+      {/* The bidder's own panel: the only place with bid controls. */}
+      {me && (
+        <div className="card-own p-4 flex flex-col gap-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-[0.95rem] font-medium text-ink truncate">
+                {me.display_name}
+                <span className="pill pill-quiet ml-2 align-middle">You</span>
+              </span>
+              <span className="text-sm text-ink-3">{rankNote(myRank, ranked.length)}</span>
             </div>
+            <span className="display text-3xl num leading-none shrink-0">
+              ${Number(me.amount || 0).toLocaleString()}
+            </span>
           </div>
-          
-          {sortedParticipantsForDisplay.filter(p => p.device_id && p.device_id === currentDeviceId).map((p) => {
-        const isSelf = true // This is always true in this section
-        const isHighestBidder = p.id === highestBidder?.id
-        const rank = sortedParticipants.findIndex(participant => participant.id === p.id) + 1
-        const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`
-        
-        return (
-          <div
-            key={p.id}
-            className={`p-4 rounded-xl border transition-all duration-300 ${
-              isHighestBidder
-                ? 'bg-gradient-to-r from-amber-900/50 to-yellow-800/50 border-amber-500/60 shadow-lg shadow-amber-500/20 highest-bidder-card'
-                : 'bg-gradient-to-r from-blue-900/30 to-cyan-800/20 border-blue-500/40 shadow-lg shadow-blue-500/20'
-            }`}
-          >
-            {/* Current User Badge */}
-            <div className="flex items-center justify-center mb-3">
-              <div className="flex items-center gap-2 bg-gradient-to-r from-blue-400 to-cyan-400 text-blue-900 px-3 py-1 rounded-full text-sm font-bold shadow-lg">
-                <span className="text-lg">👤</span>
-                <span>You</span>
-              </div>
-            </div>
 
-            {/* Highest Bidder Badge - Show if also highest bidder */}
-            {isHighestBidder && (
-              <div className="flex items-center justify-center mb-3">
-                <div className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900 px-3 py-1 rounded-full text-sm font-bold shadow-lg trophy-badge">
-                  <span className="text-lg">🏆</span>
-                  <span>Highest Bidder</span>
-                </div>
-              </div>
-            )}
+          {/* Bid tiers. Locked ones stay on screen so the room can see
+              what the next round brings. */}
+          <div className="grid grid-cols-2 gap-2">
+            {ALL_PRESET_AMOUNTS.map((amount) => {
+              const isUnlocked = unlocked.includes(amount)
+              const busy = isPlacingBid === me.id
 
-            {/* Mobile-first responsive header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
-              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                <div className={`text-lg sm:text-xl font-semibold ${isHighestBidder ? 'text-amber-200' : 'text-blue-200'}`}>
-                  {p.display_name}
-                </div>
-                {isHighestBidder && (
-                  <span className="text-xl sm:text-2xl crown-animation">👑</span>
-                )}
-                {/* Position indicator */}
-                <span className={`text-xs sm:text-sm px-2 py-1 rounded-full position-bounce ${
-                  rank === 1 ? 'bg-yellow-500/20 text-yellow-300' :
-                  rank === 2 ? 'bg-gray-500/20 text-gray-300' :
-                  rank === 3 ? 'bg-amber-600/20 text-amber-300' :
-                  'bg-slate-500/20 text-slate-300'
-                }`}>
-                  {rankEmoji}
-                </span>
-              </div>
-              <div className="text-slate-400 text-sm sm:text-base self-start sm:self-auto">Bid</div>
-            </div>
-            
-            <div className={`mt-2 sm:mt-1 text-xl sm:text-2xl font-extrabold ${
-              isHighestBidder ? 'text-amber-300' : 'text-blue-300'
-            }`}>
-              ${Number(p.amount || 0)}
-            </div>
+              if (!isUnlocked) {
+                return (
+                  <button
+                    key={amount}
+                    type="button"
+                    disabled
+                    className="btn btn-locked flex items-center justify-center gap-1.5 num"
+                    title={`Unlocks in round ${roundThatUnlocks(amount)}`}
+                  >
+                    <LockGlyph />
+                    ${amount}
+                  </button>
+                )
+              }
 
-            {/* Progress bar showing relative position to highest bidder */}
-            {highestBidder && highestBidder.amount > 0 && (
-              <div className="mt-3 sm:mt-2 w-full bg-slate-700 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full transition-all duration-500 ${
-                    isHighestBidder 
-                      ? 'bg-gradient-to-r from-amber-400 to-yellow-400' 
-                      : 'bg-gradient-to-r from-blue-500 to-cyan-500'
-                  }`}
-                  style={{ 
-                    width: `${Math.min((Number(p.amount || 0) / Number(highestBidder.amount)) * 100, 100)}%` 
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Bid buttons - Always shown for current user */}
-            <div className="mt-4 sm:mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-start">
-              {PRESET_AMOUNTS.map((a) => (
+              return (
                 <button
-                  key={a}
-                  disabled={!canParticipantBid(p.id)}
-                  className={`btn px-3 py-2 rounded-lg transition-all duration-200 ${
-                    canParticipantBid(p.id)
-                      ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover hover:scale-105'
-                      : 'bg-white/10 text-slate-400 cursor-not-allowed opacity-60'
-                  }`}
-                  onClick={() => onPlaceBid(a, p.id)}
+                  key={amount}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onPlaceBid(amount, me.id)}
+                  className="btn num"
                 >
-                  {isPlacingBid === p.id ? '...' : `+$${a}`}
+                  {busy ? '…' : `+$${amount}`}
                 </button>
-              ))}
-              
-              {/* Custom Amount Button */}
+              )
+            })}
+
+            {canBidCustom ? (
               <button
-                disabled={!canParticipantBid(p.id)}
-                className={`btn px-3 py-2 rounded-lg transition-all duration-200 ${
-                  canParticipantBid(p.id)
-                    ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover hover:scale-105'
-                    : 'bg-white/10 text-slate-400 cursor-not-allowed opacity-60'
-                }`}
-                onClick={() => onCustomBid(p.id)}
+                type="button"
+                disabled={isPlacingBid === me.id}
+                onClick={() => onCustomBid(me.id)}
+                className="btn btn-primary col-span-2"
               >
-                {isPlacingBid === p.id ? '...' : 'Custom'}
+                {isPlacingBid === me.id ? '…' : 'Name your amount'}
               </button>
-            </div>
-
-            {/* Undo Button - Show if participant has bids */}
-            {p.amount > 0 && (
-              <div className="mt-3 flex justify-center">
-                <button
-                  onClick={() => onUndoBid(p.id)}
-                  disabled={!canParticipantBid(p.id)}
-                  className={`btn px-4 py-2 rounded-lg transition-all duration-200 ${
-                    canParticipantBid(p.id)
-                      ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white hover:scale-105 shadow-lg'
-                      : 'bg-white/10 text-slate-400 cursor-not-allowed opacity-60'
-                  }`}
-                  title="Undo your last bid"
-                >
-                  <span className="flex items-center gap-2">
-                    <span>↶</span>
-                    <span>Undo Last Bid</span>
-                  </span>
-                </button>
-              </div>
-            )}
-
-            {/* Custom Amount Modal - only show for current user */}
-            {showCustomInput === p.id && (
-              <div className="mt-4 p-4 sm:p-5 bg-slate-800/50 border border-slate-600 rounded-xl backdrop-blur-sm">
-                <div className="text-sm sm:text-base text-slate-300 mb-3 sm:mb-4">Enter custom amount (≥ $5)</div>
-                
-                {/* Mobile-first responsive layout */}
-                <div className="space-y-4 sm:space-y-0 sm:flex sm:gap-3">
-                  {/* Input field - full width on mobile, flex-1 on larger screens */}
-                  <input
-                    type="number"
-                    min={MIN_BID_AMOUNT}
-                    step="1"
-                    value={customAmount}
-                    onChange={(e) => {
-                      // Only allow integers - filter out decimal input
-                      const value = e.target.value
-                      if (value === '' || /^\d+$/.test(value)) {
-                        onCustomAmountChange(value)
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        onCustomAmountSubmit(p.id)
-                      } else if (e.key === 'Escape') {
-                        onCustomAmountCancel()
-                      }
-                      // Prevent decimal input (period/dot key)
-                      if (e.key === '.' || e.key === ',') {
-                        e.preventDefault()
-                      }
-                    }}
-                    placeholder="Enter amount..."
-                    className="w-full sm:flex-1 bg-white/10 border border-slate-500 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 text-base"
-                    autoFocus
-                  />
-                  
-                  {/* Button container - stacked on mobile, horizontal on larger screens */}
-                  <div className="flex gap-3 sm:gap-2 sm:flex-shrink-0">
-                    <button
-                      onClick={() => onCustomAmountSubmit(p.id)}
-                      disabled={!customAmount || Number(customAmount) < MIN_BID_AMOUNT}
-                      className={`flex-1 sm:flex-none btn px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        customAmount && Number(customAmount) >= MIN_BID_AMOUNT
-                          ? 'bg-[var(--neon)] text-neutral-900 shadow-neon hover:shadow-neonHover hover:scale-105'
-                          : 'bg-white/10 text-slate-400 cursor-not-allowed'
-                      }`}
-                    >
-                      Add
-                    </button>
-                    <button
-                      onClick={onCustomAmountCancel}
-                      className="flex-1 sm:flex-none btn bg-slate-600 hover:bg-slate-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="btn btn-locked col-span-2 flex items-center justify-center gap-1.5"
+                title="Unlocks in round 3"
+              >
+                <LockGlyph />
+                Your own amount
+              </button>
             )}
           </div>
-        )
-      })}
-        </>
+
+          {!canBidCustom && (
+            <p className="text-sm text-ink-3 m-0">
+              {unlocked.length < ALL_PRESET_AMOUNTS.length
+                ? 'The bigger amounts unlock as the auction moves through its rounds.'
+                : 'Any amount you like unlocks in round 3.'}
+            </p>
+          )}
+
+          {/* Custom amount */}
+          {showCustomInput === me.id && (
+            <div className="card p-4 flex flex-col gap-3 animate-rise">
+              <label htmlFor="custom-amount" className="text-sm text-ink-2">
+                How much would you like to add? ${MIN_BID_AMOUNT} to ${MAX_BID_AMOUNT.toLocaleString()}.
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  id="custom-amount"
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_BID_AMOUNT}
+                  max={MAX_BID_AMOUNT}
+                  step="1"
+                  value={customAmount}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    if (value === '' || /^\d+$/.test(value)) {
+                      onCustomAmountChange(value)
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onCustomAmountSubmit(me.id)
+                    else if (e.key === 'Escape') onCustomAmountCancel()
+                    if (e.key === '.' || e.key === ',') e.preventDefault()
+                  }}
+                  placeholder="e.g. 75"
+                  className="field num sm:flex-1"
+                  autoFocus
+                />
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onCustomAmountSubmit(me.id)}
+                    disabled={!customAmount || Number(customAmount) < MIN_BID_AMOUNT}
+                    className="btn btn-primary flex-1 sm:flex-none"
+                  >
+                    Add it
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onCustomAmountCancel}
+                    className="btn btn-ghost flex-1 sm:flex-none"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {Number(me.amount || 0) > 0 && (
+            <button
+              type="button"
+              onClick={() => onUndoBid(me.id)}
+              disabled={!canParticipantBid(me.id)}
+              className="self-start text-sm text-ink-3 hover:text-accent underline underline-offset-4 disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-0 p-0 cursor-pointer"
+            >
+              Undo my last bid
+            </button>
+          )}
+        </div>
       )}
 
-      {/* Other Participants Section */}
-      {sortedParticipantsForDisplay.filter(p => !p.device_id || p.device_id !== currentDeviceId).length > 0 && (
-        <>
-          <div className="text-center py-4">
-            <div className="inline-flex items-center space-x-2 px-4 py-2 bg-slate-700/30 border border-slate-600/40 rounded-xl">
-              <span className="text-lg">👥</span>
-              <span className="text-sm font-medium text-slate-300">Other Participants</span>
-            </div>
+      {/* The room. Read-only, ranked, no bid controls. */}
+      {others.length > 0 && (
+        <div className="flex flex-col">
+          <div className="flex items-baseline justify-between pb-2 border-b border-hairline">
+            <span className="label">The room</span>
+            <span className="label">Pledged</span>
           </div>
-          
-          {sortedParticipantsForDisplay.filter(p => !p.device_id || p.device_id !== currentDeviceId).map((p) => {
-        const isSelf = p.device_id && p.device_id === currentDeviceId
-        const isHighestBidder = p.id === highestBidder?.id
-        const rank = sortedParticipants.findIndex(participant => participant.id === p.id) + 1
-        const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`
-        
-        return (
-          <div
-            key={p.id}
-            className={`p-4 rounded-xl border transition-all duration-300 ${
-              isHighestBidder
-                ? 'bg-gradient-to-r from-amber-900/50 to-yellow-800/50 border-amber-500/60 shadow-lg shadow-amber-500/20 highest-bidder-card'
-                : isSelf
-                ? 'bg-slate-800/50 border-slate-600'
-                : 'bg-slate-800/30 border-slate-600'
-            }`}
-          >
-            {/* Highest Bidder Badge */}
-            {isHighestBidder && (
-              <div className="flex items-center justify-center mb-3">
-                <div className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900 px-3 py-1 rounded-full text-sm font-bold shadow-lg trophy-badge">
-                  <span className="text-lg">🏆</span>
-                  <span>Highest Bidder</span>
-                </div>
-              </div>
-            )}
-
-            {/* Mobile-first responsive header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
-              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                <div className={`text-lg sm:text-xl font-semibold ${isHighestBidder ? 'text-amber-200' : ''}`}>
+          {others.map((p) => {
+            const rank = ranked.findIndex(r => r.id === p.id) + 1
+            const isLeader = p.id === leaderId
+            return (
+              <div
+                key={p.id}
+                className="grid grid-cols-[1.5rem_1fr_auto] items-center gap-3 py-3 border-b border-hairline"
+              >
+                <span className={`num text-sm ${isLeader ? 'text-accent' : 'text-ink-3'}`}>
+                  {rank}
+                </span>
+                <span className={`text-[0.9rem] truncate ${isLeader ? 'text-ink font-medium' : 'text-ink'}`}>
                   {p.display_name}
-                </div>
-                {isHighestBidder && (
-                  <span className="text-xl sm:text-2xl crown-animation">👑</span>
-                )}
-                {/* Position indicator */}
-                <span className={`text-xs sm:text-sm px-2 py-1 rounded-full position-bounce ${
-                  rank === 1 ? 'bg-yellow-500/20 text-yellow-300' :
-                  rank === 2 ? 'bg-gray-500/20 text-gray-300' :
-                  rank === 3 ? 'bg-amber-600/20 text-amber-300' :
-                  'bg-slate-500/20 text-slate-300'
-                }`}>
-                  {rankEmoji}
+                  {isLeader && <span className="pill pill-accent ml-2 align-middle">Leading</span>}
+                </span>
+                <span className={`num text-[0.9rem] ${isLeader ? 'text-accent' : 'text-ink'}`}>
+                  ${Number(p.amount || 0).toLocaleString()}
                 </span>
               </div>
-              <div className="text-slate-400 text-sm sm:text-base self-start sm:self-auto">Bid</div>
-            </div>
-            
-            <div className={`mt-2 sm:mt-1 text-xl sm:text-2xl font-extrabold ${
-              isHighestBidder ? 'text-amber-300' : ''
-            }`}>
-              ${Number(p.amount || 0)}
-            </div>
+            )
+          })}
+        </div>
+      )}
 
-            {/* Progress bar showing relative position to highest bidder */}
-            {highestBidder && highestBidder.amount > 0 && (
-              <div className="mt-3 sm:mt-2 w-full bg-slate-700 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full transition-all duration-500 ${
-                    isHighestBidder 
-                      ? 'bg-gradient-to-r from-amber-400 to-yellow-400' 
-                      : 'bg-gradient-to-r from-blue-500 to-purple-500'
-                  }`}
-                  style={{ 
-                    width: `${Math.min((Number(p.amount || 0) / Number(highestBidder.amount)) * 100, 100)}%` 
-                  }}
-                />
-              </div>
-            )}
-
-            {/* No bid buttons for other participants - they're read-only */}
-          </div>
-        )
-      })}
-        </>
+      {participants.length === 0 && (
+        <p className="text-sm text-ink-3 py-6 text-center m-0">
+          Nobody has joined yet. Share the session link to get started.
+        </p>
       )}
     </div>
   )

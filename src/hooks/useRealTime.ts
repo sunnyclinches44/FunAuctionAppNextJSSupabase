@@ -4,13 +4,13 @@ import { useSessionStore, Participant, Bid } from '@/store/useSessionStore'
 
 export function useRealTime(sessionId: string | null) {
   const channelRef = useRef<any>(null)
-  const { 
-    addParticipant, 
-    updateParticipant, 
-    removeParticipant, 
-    addBid, 
+  const {
+    addParticipant,
+    updateParticipant,
+    removeParticipant,
+    addBid,
     setRtReady,
-    currentSession
+    setRound
   } = useSessionStore()
 
   useEffect(() => {
@@ -74,6 +74,29 @@ export function useRealTime(sessionId: string | null) {
         }
       )
       
+      // Listen for the admin opening a new round. This is what unlocks the
+      // higher bid buttons on every phone in the hall without a refresh.
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'sessions',
+          filter: `id=eq.${sessionId}`
+        },
+        (payload: any) => {
+          console.log('Session change:', payload)
+
+          try {
+            if (payload.new?.current_round != null) {
+              setRound(payload.new.current_round)
+            }
+          } catch (error) {
+            console.error('Error handling session change:', error)
+          }
+        }
+      )
+
       // Subscribe and handle status changes
       .subscribe((status) => {
         console.log('Realtime status:', status)
@@ -94,7 +117,7 @@ export function useRealTime(sessionId: string | null) {
         channelRef.current = null
       }
     }
-  }, [sessionId, addParticipant, updateParticipant, removeParticipant, addBid, setRtReady, currentSession])
+  }, [sessionId, addParticipant, updateParticipant, removeParticipant, addBid, setRtReady, setRound])
 
   return {
     isConnected: channelRef.current !== null

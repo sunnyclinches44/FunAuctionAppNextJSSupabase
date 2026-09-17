@@ -16,9 +16,9 @@ export default function LoadingSpinner({
   }
 
   const variantClasses = {
-    default: 'text-slate-400',
-    primary: 'text-blue-500',
-    success: 'text-green-500'
+    default: 'text-ink-3',
+    primary: 'text-accent',
+    success: 'text-live'
   }
 
   return (

@@ -7,11 +7,28 @@ A modern, real-time auction platform built with **Next.js 14** and **Supabase**.
 ## ✨ **Current Features**
 
 ### 🎯 **Core Auction Functionality**
+- **Three-round bidding**: Higher amounts unlock as the organiser opens each round
 - **Real-time Bidding**: Instant updates across all participants
-- **Custom Amount Input**: Flexible bidding with custom amounts + preset options
+- **Custom Amount Input**: Free-text amounts, available once round 3 opens
 - **Session Management**: Create, monitor, and manage auction sessions
 - **Participant Tracking**: Real-time participant counts and total amounts
 - **Bid History**: Complete audit trail of all bids and contributions
+
+### 🔢 **The round ladder**
+
+Each round keeps everything earlier rounds unlocked, so nobody is pushed past
+what they wanted to give.
+
+| Round | Name | Unlocks | Buttons available |
+|-------|------|---------|-------------------|
+| 1 | Warm-up | $5, $10 | $5, $10 |
+| 2 | Stakes up | $20, $50 | $5, $10, $20, $50 |
+| 3 | Open | any amount | all presets, plus $5–$10,000 free text |
+
+The organiser advances rounds from `/admin`. Every joined phone updates over
+Supabase realtime without a refresh. The ladder is enforced in the database by
+`place_bid()`, so disabling buttons in the browser is a convenience, not the
+control.
 
 ### 👨‍💼 **Admin Panel** (`/admin`)
 - **Secure Authentication**: Supabase Email Magic Link login
@@ -41,13 +58,13 @@ A modern, real-time auction platform built with **Next.js 14** and **Supabase**.
 
 ### **👨‍💼 Admin Panel Interface**
 ![Admin Panel](docs/admin-panel.png)
-*Admin dashboard showing active sessions, participant management, and session controls*
+*Admin sign-in. Once signed in you get session cards with round control, bidder lists and mobile numbers*
 
 ### **👥 End User Auction Interface**
 ![End User Interface](docs/end-user-interface.png)
-*Public auction session with real-time bidding, participant list, and custom amount input*
+*A bidder's phone during round 2. The $20 and $50 tiers have unlocked; the free-text amount stays locked until round 3*
 
-> **📝 Note**: Screenshots should be placed in the `docs/` folder. See `docs/README.md` for detailed guidelines on taking and organizing screenshots.
+> **📝 Note**: Screenshots live in the `docs/` folder. See `docs/README.md` for guidelines on taking and organizing them.
 
 ---
 
@@ -55,9 +72,9 @@ A modern, real-time auction platform built with **Next.js 14** and **Supabase**.
 
 ### **Frontend Stack**
 - **Next.js 14**: App Router with TypeScript
-- **Tailwind CSS**: Utility-first styling with custom design system
-- **Google Fonts**: Plus Jakarta Sans for modern typography
-- **Responsive Design**: Mobile-first approach with dark theme
+- **Tailwind CSS**: Utility-first styling over the SSM One token set
+- **Google Fonts**: DM Sans, Source Serif 4 and DM Mono via `next/font`
+- **Responsive Design**: Mobile-first, light "paper" theme with a navy dark theme
 
 ### **Backend Infrastructure**
 - **Supabase**: Backend-as-a-Service platform
@@ -110,11 +127,18 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 ### **4. Database Setup**
-```bash
-# Run the complete schema in Supabase SQL Editor
-# File: src/supabase/master_schema.sql
-# This creates all tables, policies, and RPC functions
+
+Run these two files in the Supabase SQL Editor, in order:
+
 ```
+1. src/supabase/master_schema.sql    # tables, indexes, RLS policies, base RPCs
+2. src/supabase/rounds_migration.sql # round column, round-aware RPCs, realtime
+```
+
+Both are safe to re-run. On an existing database that predates rounds, the
+second file is all you need. It also puts the `sessions` table on the
+`supabase_realtime` publication, which is what lets an opened round reach every
+phone without a refresh.
 
 ### **5. Development**
 ```bash
@@ -149,8 +173,13 @@ npm run dev
 
 ### **RPC Functions (Supabase)**
 - `join_session()`: Handle participant creation/updates
-- `place_bid()`: Process bids with validation
-- `get_session_details()`: Fetch complete session data
+- `place_bid()`: Process bids, rejecting any amount the current round does not allow
+- `get_session_details()`: Fetch complete session data, including `current_round`
+- `set_session_round()`: Advance or rewind the round. Granted to `authenticated`
+  only, so a participant cannot open a round for themselves
+- `undo_last_bid()`: Remove a participant's most recent bid
+- `amount_allowed_in_round()`: The round gate itself, mirrored in
+  `src/lib/constants.ts` for the UI
 
 ### **Security & Performance**
 - **RLS Policies**: Database-level access control
@@ -168,27 +197,45 @@ npm run dev
 
 ## 🎨 **Design System**
 
-### **Color Palette**
+The app uses the **SSM One Pty Ltd** brand system. Every colour is a CSS
+variable in `src/app/globals.css`, so the light and dark themes swap without
+duplicating component styles.
+
+### **Color Palette (light "paper" theme)**
 ```css
---neon: #00ff88          /* Primary accent */
---border: #334155        /* Subtle borders */
---background: #0f172a    /* Dark theme base */
+--paper:    #F0EEE6   /* page ground */
+--ivory:    #FAF9F5   /* cards, nav, panels */
+--cloud:    #E5E3D9   /* button hover fill */
+--accent:   #C15F3C   /* live round, leader, primary action */
+--ink:      #191919   /* headings, amounts */
+--ink-2:    #52514E   /* body text, button borders */
+--ink-3:    #7D7C74   /* meta, locked tiers */
+--hairline: #DAD8CE   /* rules and dividers */
 ```
 
-### **Typography**
-- **Font Family**: Plus Jakarta Sans (Google Fonts)
-- **Responsive Sizing**: Mobile-first scale system
-- **Accessibility**: High contrast and readable text
+The dark theme redefines the same tokens in SSM One's navy, intended for the
+hall projector. It follows the OS preference by default and is toggled from the
+nav; the choice is remembered in `localStorage`.
 
-### **Component Library**
-- **Custom Buttons**: Consistent styling across the app
-- **Card Components**: Unified content containers
-- **Modal System**: Interactive overlays for custom inputs
-- **Responsive Grid**: Adaptive layouts for all screen sizes
+### **Typography**
+- **Source Serif 4**: headings and money
+- **DM Sans**: interface text, labels and buttons
+- **DM Mono**: session codes and columns of figures, with tabular numerals
+
+### **Component Classes**
+`.card`, `.card-own`, `.btn` (with `.btn-primary`, `.btn-ghost`, `.btn-quiet`,
+`.btn-danger`, `.btn-locked`), `.field`, `.pill`, `.label`, `.num`, `.display`.
 
 ---
 
 ## 🔍 **Recent Improvements**
+
+### **v3.0 - Rounds and the SSM One theme**
+- ✅ Three-round bidding ladder, enforced in the database
+- ✅ Admin round control, with the change reaching every phone over realtime
+- ✅ Locked tiers stay visible so bidders can see what the next round brings
+- ✅ Rebuilt on the SSM One brand system: paper light theme, navy dark theme
+- ✅ Removed the gradient and emoji-driven UI in favour of type and hairlines
 
 ### **v2.0 - Participant Management**
 - ✅ Admin can delete individual participants

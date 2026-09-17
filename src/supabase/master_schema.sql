@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS public.sessions (
   title text,
   created_by uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at timestamptz DEFAULT now(),
-  is_active boolean DEFAULT true
+  is_active boolean DEFAULT true,
+  current_round smallint NOT NULL DEFAULT 1
+    CONSTRAINT sessions_current_round_range CHECK (current_round BETWEEN 1 AND 3)
 );
 
 -- Participants table
@@ -439,3 +441,8 @@ GRANT EXECUTE ON FUNCTION undo_last_bid(text, text) TO anon, authenticated;
 -- ============ END OF MASTER SCHEMA ============
 -- Run this entire file in Supabase SQL Editor
 -- All tables, policies, and functions will be created/updated
+--
+-- THEN run src/supabase/rounds_migration.sql, which replaces place_bid and
+-- get_session_details with their round-aware versions, adds set_session_round,
+-- and puts the sessions table on the realtime publication. The round-aware
+-- definitions live only in that file so there is one copy to maintain.

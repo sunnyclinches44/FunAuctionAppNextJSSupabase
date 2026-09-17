@@ -14,6 +14,7 @@ interface Session {
   created_at: string
   participant_count: number
   total_amount: number
+  current_round: number
 }
 
 interface Participant {
@@ -47,23 +48,31 @@ function SignInCard({ onDone }: { onDone?: () => void }) {
   }
 
   return (
-    <div className="card p-4 max-w-md w-full">
-      <h3 className="text-lg font-semibold mb-2">Admin login</h3>
+    <div className="card p-6 max-w-md w-full mx-auto flex flex-col gap-4 text-left">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-xl">Sign in</h2>
+        <p className="text-sm text-ink-3 m-0">
+          We send a link to your inbox. No password to remember.
+        </p>
+      </div>
       {sent ? (
-        <div className="text-amber-300 text-sm">
-          Magic link sent. After you click it, you&apos;ll return here.
-        </div>
+        <p className="text-sm text-live m-0">
+          Link sent. Open it on this device and you will land back here.
+        </p>
       ) : (
-        <form onSubmit={send} className="flex gap-2">
+        <form onSubmit={send} className="flex flex-col sm:flex-row gap-2">
+          <label htmlFor="admin-email" className="sr-only">Email address</label>
           <input
+            id="admin-email"
             type="email"
             required
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="flex-1 bg-white/5 border border-[var(--border)] rounded-xl px-3 py-2 outline-none"
+            className="field sm:flex-1"
+            autoComplete="email"
           />
-          <button className="btn btn-primary px-4 py-2" disabled={busy}>
+          <button className="btn btn-primary shrink-0" disabled={busy}>
             {busy ? 'Sending…' : 'Send link'}
           </button>
         </form>
@@ -115,7 +124,7 @@ export default function AdminPage() {
       // Get all active sessions
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('sessions')
-        .select('id, code, title, created_at, is_active')
+        .select('id, code, title, created_at, is_active, current_round')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
 
@@ -142,6 +151,7 @@ export default function AdminPage() {
 
         return {
           ...session,
+          current_round: session.current_round ?? 1,
           participant_count,
           total_amount
         }
@@ -285,6 +295,28 @@ export default function AdminPage() {
     }
   }
 
+  async function changeRound(sessionCode: string, round: number): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.rpc('set_session_round', {
+        p_session_code: sessionCode,
+        p_round: round
+      })
+
+      if (error) throw error
+
+      // Reflect it immediately; every joined phone gets the same change over
+      // realtime from the sessions table.
+      setSessions(prev => prev.map(s =>
+        s.code === sessionCode ? { ...s, current_round: data?.current_round ?? round } : s
+      ))
+      return true
+    } catch (error) {
+      console.error('Error changing round:', error)
+      alert(`Could not change the round: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      return false
+    }
+  }
+
   async function signOut() {
     await supabase.auth.signOut()
     setAuthed(false)
@@ -293,86 +325,50 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <main className="min-h-screen flex flex-col">
       <Navigation />
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-amber-400/10 to-orange-500/10 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute bottom-20 right-10 w-40 h-40 bg-gradient-to-br from-blue-400/10 to-cyan-500/10 rounded-full blur-3xl animate-float" style={{animationDelay: '1s'}}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-green-400/5 to-emerald-500/5 rounded-full blur-3xl animate-float" style={{animationDelay: '2s'}}></div>
-      </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
-        {/* Auth Section */}
-        {!authed ? (
-          <div className="text-center py-16">
-            <div className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-2xl text-blue-300 mb-6">
-              <span className="text-lg">🔐</span>
-              <span className="font-medium">Admin Authentication</span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-200 mb-4">
-              Access the
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
-                Admin Panel
-              </span>
-            </h1>
-            <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-8">
-              Sign in to manage your auction sessions, participants, and monitor real-time activity
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
-              <button 
-                className="btn btn-primary px-6 py-3 text-lg font-semibold"
-                onClick={() => setShowLogin((s) => !s)}
-              >
-                {showLogin ? 'Close Login' : '🔐 Admin Login'}
-              </button>
-              
-              <button
-                onClick={() => router.push('/')}
-                className="btn btn-ghost px-6 py-3 text-lg font-semibold"
-              >
-                🏠 Back to Home
-              </button>
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        {!ready ? (
+          <p className="text-center text-ink-3 py-16">Checking your sign-in…</p>
+        ) : !authed ? (
+          <div className="max-w-xl mx-auto py-12 text-center flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
+              <span className="label">Admin</span>
+              <h1 className="text-3xl sm:text-4xl">Run an auction</h1>
+              <p className="text-ink-2 m-0">
+                Sign in to create sessions, open each round, and see who has pledged what.
+              </p>
             </div>
 
-            {/* Login Card */}
-            {showLogin && (
-              <div className="max-w-md mx-auto animate-fade-in-up">
+            {showLogin ? (
+              <div className="animate-rise">
                 <SignInCard onDone={() => setShowLogin(false)} />
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button className="btn btn-primary" onClick={() => setShowLogin(true)}>
+                  Sign in
+                </button>
+                <button onClick={() => router.push('/')} className="btn btn-ghost">
+                  Back to home
+                </button>
               </div>
             )}
           </div>
         ) : (
-          /* Authenticated Admin View */
-          <div className="animate-fade-in-up">
-            {/* Header with Auth Info */}
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center text-xl">
-                  ✅
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-200">Signed in as</h2>
-                  <p className="text-lg text-green-400 font-medium">{email}</p>
-                </div>
-              </div>
-              
-              <button 
-                className="btn btn-ghost px-4 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                onClick={signOut}
-              >
-                🚪 Sign Out
+          <div className="animate-rise flex flex-col gap-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-ink-3 m-0">
+                Signed in as <span className="text-ink">{email}</span>
+              </p>
+              <button className="btn btn-quiet" onClick={signOut}>
+                Sign out
               </button>
             </div>
 
-            {/* Modern Admin Layout */}
             {loading ? (
-              <div className="text-center py-16">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-400 mx-auto mb-4"></div>
-                <p className="text-slate-400 text-lg">Loading sessions...</p>
-              </div>
+              <p className="text-center text-ink-3 py-16">Loading your sessions…</p>
             ) : (
               <ModernAdminLayout
                 sessions={sessions}
@@ -380,19 +376,13 @@ export default function AdminPage() {
                 onDeleteParticipant={deleteParticipant}
                 onLoadParticipants={loadParticipants}
                 onCreateSession={() => router.push('/create')}
+                onChangeRound={changeRound}
               />
             )}
           </div>
         )}
-
-        {/* Small hint while auth state loads on first paint */}
-        {!ready && (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-400 mx-auto mb-2"></div>
-            <p className="text-slate-400">Checking sign-in status...</p>
-          </div>
-        )}
       </div>
+
       <ModernFooter />
     </main>
   )
