@@ -5,6 +5,12 @@ interface RoundRailProps {
   currentRound: number
   /** Admin-facing rails drop the "Live" pill, which belongs to the bidder view. */
   showLive?: boolean
+  /**
+   * Bidders must not see what a future round unlocks: the reveal is the point,
+   * and knowing $50 is coming invites holding back in round 1. Only the admin
+   * view passes this.
+   */
+  revealAll?: boolean
 }
 
 function amountsLabel(roundNumber: number): string {
@@ -13,7 +19,20 @@ function amountsLabel(roundNumber: number): string {
   return round.unlocks.map(a => `$${a}`).join(' · ')
 }
 
-const RoundRail = memo(function RoundRail({ currentRound, showLive = true }: RoundRailProps) {
+function LockGlyph() {
+  return (
+    <svg className="w-3 h-3 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+      <rect x="5" y="11" width="14" height="9" rx="1.5" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  )
+}
+
+const RoundRail = memo(function RoundRail({
+  currentRound,
+  showLive = true,
+  revealAll = false
+}: RoundRailProps) {
   const current = normalizeRound(currentRound)
   const meta = ROUNDS[current - 1]
 
@@ -35,6 +54,8 @@ const RoundRail = memo(function RoundRail({ currentRound, showLive = true }: Rou
         {ROUNDS.map((round) => {
           const done = round.n < current
           const now = round.n === current
+          const hidden = !revealAll && round.n > current
+
           return (
             <li key={round.n} className="flex flex-col gap-1.5">
               <span
@@ -48,10 +69,10 @@ const RoundRail = memo(function RoundRail({ currentRound, showLive = true }: Rou
                   now ? 'text-accent font-medium' : 'text-ink-3'
                 }`}
               >
-                {round.name}
+                {hidden ? `Round ${round.n}` : round.name}
               </span>
               <span className={`num text-[0.72rem] ${now ? 'text-ink' : 'text-ink-3'}`}>
-                {amountsLabel(round.n)}
+                {hidden ? <LockGlyph /> : amountsLabel(round.n)}
               </span>
             </li>
           )

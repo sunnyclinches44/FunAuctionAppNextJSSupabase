@@ -27,8 +27,14 @@ what they wanted to give.
 
 The organiser advances rounds from `/admin`. Every joined phone updates over
 Supabase realtime without a refresh. The ladder is enforced in the database by
-`place_bid()`, so disabling buttons in the browser is a convenience, not the
+`place_bid()`, so hiding buttons in the browser is a convenience, not the
 control.
+
+**Bidders never see what a later round unlocks.** They see the rounds exist,
+locked, but not the amounts behind them. The reveal is what keeps the room
+engaged, and it stops people holding back in round 1 because they are saving
+for a bigger button they can see coming. Only the admin view lists every round's
+amounts.
 
 ### 👨‍💼 **Admin Panel** (`/admin`)
 - **Secure Authentication**: Supabase Email Magic Link login
@@ -62,7 +68,7 @@ control.
 
 ### **👥 End User Auction Interface**
 ![End User Interface](docs/end-user-interface.png)
-*A bidder's phone during round 2. The $20 and $50 tiers have unlocked; the free-text amount stays locked until round 3*
+*A bidder's phone during round 2. The $20 and $50 tiers have just appeared; round 3 shows as locked with its amounts hidden*
 
 > **📝 Note**: Screenshots live in the `docs/` folder. See `docs/README.md` for guidelines on taking and organizing them.
 

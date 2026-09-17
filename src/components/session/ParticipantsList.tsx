@@ -2,10 +2,9 @@ import { memo } from 'react'
 import { Participant } from '@/store/useSessionStore'
 import {
   AUCTION_CONFIG,
-  ALL_PRESET_AMOUNTS,
+  FINAL_ROUND,
   amountsForRound,
   customAllowed,
-  roundThatUnlocks,
   normalizeRound
 } from '@/lib/constants'
 
@@ -86,28 +85,12 @@ const ParticipantsList = memo(function ParticipantsList({
             </span>
           </div>
 
-          {/* Bid tiers. Locked ones stay on screen so the room can see
-              what the next round brings. */}
+          {/* Only what this round has unlocked. A bidder never sees the amounts
+              a later round brings, so each round opens as a reveal rather than
+              a countdown they can plan around. */}
           <div className="grid grid-cols-2 gap-2">
-            {ALL_PRESET_AMOUNTS.map((amount) => {
-              const isUnlocked = unlocked.includes(amount)
+            {unlocked.map((amount) => {
               const busy = isPlacingBid === me.id
-
-              if (!isUnlocked) {
-                return (
-                  <button
-                    key={amount}
-                    type="button"
-                    disabled
-                    className="btn btn-locked flex items-center justify-center gap-1.5 num"
-                    title={`Unlocks in round ${roundThatUnlocks(amount)}`}
-                  >
-                    <LockGlyph />
-                    ${amount}
-                  </button>
-                )
-              }
-
               return (
                 <button
                   key={amount}
@@ -121,7 +104,7 @@ const ParticipantsList = memo(function ParticipantsList({
               )
             })}
 
-            {canBidCustom ? (
+            {canBidCustom && (
               <button
                 type="button"
                 disabled={isPlacingBid === me.id}
@@ -130,24 +113,13 @@ const ParticipantsList = memo(function ParticipantsList({
               >
                 {isPlacingBid === me.id ? '…' : 'Name your amount'}
               </button>
-            ) : (
-              <button
-                type="button"
-                disabled
-                className="btn btn-locked col-span-2 flex items-center justify-center gap-1.5"
-                title="Unlocks in round 3"
-              >
-                <LockGlyph />
-                Your own amount
-              </button>
             )}
           </div>
 
-          {!canBidCustom && (
-            <p className="text-sm text-ink-3 m-0">
-              {unlocked.length < ALL_PRESET_AMOUNTS.length
-                ? 'The bigger amounts unlock as the auction moves through its rounds.'
-                : 'Any amount you like unlocks in round 3.'}
+          {round < FINAL_ROUND && (
+            <p className="text-sm text-ink-3 flex items-baseline gap-1.5 m-0">
+              <span className="shrink-0 translate-y-px"><LockGlyph /></span>
+              <span>More opens up when the organiser starts round {round + 1}.</span>
             </p>
           )}
 

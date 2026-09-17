@@ -37,7 +37,7 @@ export const ROUNDS = [
   {
     n: 3,
     name: 'Open',
-    blurb: 'Name any amount you like.',
+    blurb: 'The ceiling comes off.',
     unlocks: [] as readonly number[],
     custom: true
   }
@@ -68,12 +68,6 @@ export function amountsForRound(round: number): readonly number[] {
 export function customAllowed(round: number): boolean {
   const current = normalizeRound(round)
   return ROUNDS.some(r => r.n <= current && r.custom)
-}
-
-/** The round that first makes this amount available, for the locked-button hint. */
-export function roundThatUnlocks(amount: number): RoundNumber {
-  const owner = ROUNDS.find(r => r.unlocks.includes(amount))
-  return (owner?.n ?? FINAL_ROUND) as RoundNumber
 }
 
 export function roundMeta(round: number) {

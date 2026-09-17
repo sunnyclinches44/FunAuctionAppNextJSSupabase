@@ -31,8 +31,9 @@ export default function HeroSection() {
         </div>
       </div>
 
-      {/* The round ladder is the thing that makes this different from a
-          plain donation form, so it opens the page rather than hiding below. */}
+      {/* The round ladder is what makes this different from a donation form,
+          so it opens the page. Deliberately no amount table: a participant is
+          one nav click from here, and the unlock is meant to surprise them. */}
       <div className="mt-14 pt-8 border-t border-hairline">
         <span className="label">Three rounds, rising stakes</span>
         <ol className="grid gap-px bg-hairline border border-hairline mt-4 sm:grid-cols-3 list-none p-0">
@@ -40,17 +41,13 @@ export default function HeroSection() {
             <li key={round.n} className="bg-ivory p-5 flex flex-col gap-2">
               <span className="num text-sm text-ink-3">Round {round.n}</span>
               <span className="display text-lg">{round.name}</span>
-              <span className="num text-sm text-ink-2">
-                {round.custom
-                  ? 'Any amount, $5 to $10,000'
-                  : round.unlocks.map(a => `$${a}`).join(' · ') + ' unlock'}
-              </span>
-              <span className="text-sm text-ink-3">{round.blurb}</span>
+              <span className="text-sm text-ink-2">{round.blurb}</span>
             </li>
           ))}
         </ol>
         <p className="text-sm text-ink-3 mt-4 m-0">
-          What unlocks stays unlocked, so nobody is pushed past what they wanted to give.
+          Bidders only ever see the amounts their current round has unlocked. When
+          you open the next one, the bigger buttons appear on every phone at once.
         </p>
       </div>
     </section>
