@@ -10,7 +10,8 @@ export function useRealTime(sessionId: string | null) {
     removeParticipant,
     addBid,
     setRtReady,
-    setRound
+    setRound,
+    setQuizPointer
   } = useSessionStore()
 
   useEffect(() => {
@@ -91,6 +92,11 @@ export function useRealTime(sessionId: string | null) {
             if (payload.new?.current_round != null) {
               setRound(payload.new.current_round)
             }
+            // The quiz pointer rides on the same row. A change here is what
+            // makes the question pop up (or the answer reveal) on every phone.
+            if (payload.new && 'quiz_phase' in payload.new) {
+              setQuizPointer(payload.new.quiz_phase, payload.new.active_question_id)
+            }
           } catch (error) {
             console.error('Error handling session change:', error)
           }
@@ -117,7 +123,7 @@ export function useRealTime(sessionId: string | null) {
         channelRef.current = null
       }
     }
-  }, [sessionId, addParticipant, updateParticipant, removeParticipant, addBid, setRtReady, setRound])
+  }, [sessionId, addParticipant, updateParticipant, removeParticipant, addBid, setRtReady, setRound, setQuizPointer])
 
   return {
     isConnected: channelRef.current !== null

@@ -365,3 +365,136 @@ h4 {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+   Quiz pop-up
+   Sits over the auction without unmounting it. Same paper, one
+   accent rule on top, like the bidder's own card.
+   ============================================================ */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(25, 25, 25, .55);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+:root[data-theme="dark"] .modal-backdrop {
+  background: rgba(6, 15, 36, .72);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .modal-backdrop {
+    background: rgba(6, 15, 36, .72);
+  }
+}
+
+.modal {
+  width: 100%;
+  max-width: 34rem;
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  background: var(--ivory);
+  border: 1px solid var(--hairline);
+  border-top: 3px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 2px 4px var(--shadow-1), 0 18px 44px var(--shadow-2);
+}
+
+/* ============================================================
+   Quiz options
+   ============================================================ */
+
+.option {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  align-items: center;
+  gap: .8rem;
+  width: 100%;
+  text-align: left;
+  padding: .75rem .9rem;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background .2s ease, border-color .2s ease, opacity .2s ease;
+}
+
+.option:hover:not(:disabled) {
+  background: var(--cloud);
+  border-color: var(--ink-2);
+}
+
+.option:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.option:disabled,
+.option-static {
+  cursor: default;
+}
+
+.option-letter {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  font-size: .8rem;
+  color: var(--ink-3);
+  background: var(--ivory);
+}
+
+.option-picked {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.option-picked .option-letter {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.option-correct {
+  border-color: var(--live);
+  background: var(--live-bg);
+}
+
+.option-correct .option-letter {
+  background: var(--live);
+  border-color: var(--live);
+  color: var(--ivory);
+}
+
+.option-wrong {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.option-wrong .option-letter {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--ivory);
+}
+
+.option-muted {
+  opacity: .55;
+}
+
+@media (max-width: 768px) {
+  .option {
+    min-height: 48px;
+  }
+}

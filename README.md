@@ -36,6 +36,34 @@ engaged, and it stops people holding back in round 1 because they are saving
 for a bigger button they can see coming. Only the admin view lists every round's
 amounts.
 
+### ❓ **The live quiz** (`/admin/quiz/[code]` and the session pop-up)
+
+A "fastest finger first" quiz that runs inside the auction without
+interrupting it.
+
+- The organiser writes questions for a session: a prompt, four options, and a
+  tick on the correct one. Five to ten is a good number.
+- During the auction the organiser **releases** a question. A pop-up opens over
+  the auction on every joined phone. The bidding page stays underneath, nothing
+  is lost, and the pop-up can be closed and reopened from the Quiz card.
+- People tap one option. The first tap is final. Server time decides who was
+  fastest, not the phone.
+- The organiser **reveals** the answer. Everyone sees the correct option,
+  whether their own pick was right, the three fastest correct answers by name,
+  and their own running score.
+- After the last question the organiser **finishes** the quiz. Each phone shows
+  its own score and its own answers, and nothing about anyone else.
+- The organiser's page shows everything: who answered what, how fast, and a
+  leaderboard.
+
+**Privacy is enforced in the database, not the browser.** Participants have no
+table access to `quiz_questions` or `quiz_answers`. They only get what
+`get_quiz_state()` returns, which never includes the correct option until the
+question is revealed and never includes another person's answers or score.
+The organiser's actions travel to phones as an update on the `sessions` row
+(`quiz_phase`, `active_question_id`), the same realtime subscription that
+carries round changes.
+
 ### 👨‍💼 **Admin Panel** (`/admin`)
 - **Secure Authentication**: Supabase Email Magic Link login
 - **Session Creation**: Create new auction sessions with custom titles
@@ -43,12 +71,14 @@ amounts.
 - **Session Management**: Delete sessions with cascade cleanup
 - **Participant Management**: View and remove individual participants
 - **Real-time Updates**: Live participant counts and amounts
+- **Run the quiz**: Per-session quiz page to write questions and run them live
 
 ### 👥 **Public Session Interface** (`/s/[code]`)
 - **Instant Join**: No registration required, just enter display name
 - **Device-based Sessions**: Unique identification per device
 - **Interactive Bidding**: Predefined amounts + custom input
 - **Real-time Updates**: Live participant and bid updates
+- **Quiz pop-up**: Answer the organiser's questions without leaving the auction
 - **Responsive Design**: Mobile-friendly auction experience
 
 ---
@@ -141,15 +171,20 @@ src/supabase/complete_setup.sql
 ```
 
 Paste the whole thing into the Supabase SQL Editor and press Run. It creates the
-tables, indexes, RLS policies and every RPC function, and it puts all three
-tables on the `supabase_realtime` publication — which is what makes bids land
-live and lets an opened round reach every phone without a refresh. It ends with
-a verification query; every row should read `OK`.
+tables, indexes, RLS policies and every RPC function (auction and quiz), and it
+puts the live tables on the `supabase_realtime` publication — which is what
+makes bids land live and lets an opened round or a released question reach
+every phone without a refresh. It ends with a verification query; every row
+should read `OK`.
 
 It is safe to run more than once, so if a run is interrupted, just run it again.
 
+**Existing database that already has rounds?** Run `src/supabase/quiz_migration.sql`.
+It adds only the quiz (two tables, two columns on `sessions`, four functions)
+and leaves your data alone. Safe to run more than once.
+
 **Existing database from before rounds?** Run `src/supabase/rounds_migration.sql`
-instead. It adds only what rounds need and leaves your data alone.
+first, then `src/supabase/quiz_migration.sql`.
 
 `master_schema.sql` is the older pre-rounds setup file, kept for reference.
 `complete_setup.sql` supersedes it.

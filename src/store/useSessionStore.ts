@@ -2,12 +2,16 @@ import { create } from 'zustand'
 import { devtools, subscribeWithSelector } from 'zustand/middleware'
 import { supabase } from '@/lib/supabaseClient'
 import { FIRST_ROUND, normalizeRound, type RoundNumber } from '@/lib/constants'
+import { normalizeQuizPhase, type QuizPhase } from '@/lib/quiz'
 
 export interface Session {
   id: string
   code: string
   title: string
   current_round: RoundNumber
+  /** Where the live quiz is. Drives the pop-up on every phone. */
+  quiz_phase: QuizPhase
+  active_question_id: string | null
 }
 
 export interface Participant {
@@ -58,6 +62,7 @@ interface SessionState {
   setError: (error: string | null) => void
   setRtReady: (ready: boolean) => void
   setRound: (round: number) => void
+  setQuizPointer: (phase: unknown, activeQuestionId: string | null | undefined) => void
   reset: () => void
 
   // Async actions
@@ -79,6 +84,30 @@ const initialState = {
   participantCount: 0
 }
 
+/** One row per participant id. Last occurrence wins, order of first sighting kept. */
+function dedupeParticipants(list: Participant[]): Participant[] {
+  const byId = new Map<string, Participant>()
+  for (const p of list) byId.set(p.id, p)
+  return Array.from(byId.values())
+}
+
+/** Replace the row with this id if it is already known, otherwise append it. */
+function upsertParticipant(list: Participant[], participant: Participant): Participant[] {
+  const exists = list.some(p => p.id === participant.id)
+  return exists
+    ? list.map(p => (p.id === participant.id ? { ...p, ...participant } : p))
+    : [...list, participant]
+}
+
+/** Recompute the derived totals from the list, so they can never drift from it. */
+function withTotals(participants: Participant[]) {
+  return {
+    participants,
+    participantCount: participants.length,
+    totalAmount: participants.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+  }
+}
+
 export const useSessionStore = create<SessionState>()(
   devtools(
     subscribeWithSelector((set, get) => ({
@@ -86,38 +115,15 @@ export const useSessionStore = create<SessionState>()(
       
       // Basic setters
       setSession: (session) => set({ currentSession: session }),
-      setParticipants: (participants) => set({ 
-        participants,
-        participantCount: participants.length,
-        totalAmount: participants.reduce((sum, p) => sum + Number(p.amount || 0), 0)
-      }),
-      addParticipant: (participant) => set((state) => ({
-        participants: [...state.participants, participant],
-        participantCount: state.participants.length + 1,
-        totalAmount: state.totalAmount + Number(participant.amount || 0)
-      })),
-      updateParticipant: (participant) => set((state) => {
-        const oldAmount = state.participants.find(p => p.id === participant.id)?.amount || 0
-        const newAmount = Number(participant.amount || 0)
-        const amountDiff = newAmount - oldAmount
-        
-        return {
-          participants: state.participants.map(p => 
-            p.id === participant.id ? participant : p
-          ),
-          totalAmount: state.totalAmount + amountDiff
-        }
-      }),
-      removeParticipant: (participantId) => set((state) => {
-        const participant = state.participants.find(p => p.id === participantId)
-        const amount = participant ? Number(participant.amount || 0) : 0
-        
-        return {
-          participants: state.participants.filter(p => p.id !== participantId),
-          participantCount: state.participants.length - 1,
-          totalAmount: state.totalAmount - amount
-        }
-      }),
+      setParticipants: (participants) => set(withTotals(dedupeParticipants(participants))),
+      // Both of these upsert. The realtime INSERT for someone who just joined
+      // can arrive after the page has already reloaded the full list (or twice
+      // on a reconnect), and appending blindly showed the same name twice.
+      addParticipant: (participant) => set((state) => withTotals(upsertParticipant(state.participants, participant))),
+      updateParticipant: (participant) => set((state) => withTotals(upsertParticipant(state.participants, participant))),
+      removeParticipant: (participantId) => set((state) =>
+        withTotals(state.participants.filter(p => p.id !== participantId))
+      ),
       addBid: (bid) => set((state) => {
         // Find the participant who placed the bid
         const participant = state.participants.find(p => p.id === bid.participant_id)
@@ -212,6 +218,17 @@ export const useSessionStore = create<SessionState>()(
           ? { currentSession: { ...state.currentSession, current_round: normalizeRound(round) } }
           : state
       )),
+      setQuizPointer: (phase, activeQuestionId) => set((state) => (
+        state.currentSession
+          ? {
+              currentSession: {
+                ...state.currentSession,
+                quiz_phase: normalizeQuizPhase(phase),
+                active_question_id: activeQuestionId ?? null
+              }
+            }
+          : state
+      )),
       reset: () => set(initialState),
       
       // Async actions
@@ -245,11 +262,11 @@ export const useSessionStore = create<SessionState>()(
                 id: data.session.id,
                 code: data.session.code,
                 title: data.session.title,
-                current_round: normalizeRound(data.session.current_round ?? FIRST_ROUND)
+                current_round: normalizeRound(data.session.current_round ?? FIRST_ROUND),
+                quiz_phase: normalizeQuizPhase(data.session.quiz_phase),
+                active_question_id: data.session.active_question_id ?? null
               },
-              participants: data.participants || [],
-              participantCount: data.participant_count || 0,
-              totalAmount: data.total_amount || 0
+              ...withTotals(dedupeParticipants(data.participants || []))
             })
           } else {
             set({ 
@@ -387,3 +404,7 @@ export const useError = () => useSessionSelector(state => state.error)
 export const useRtReady = () => useSessionSelector(state => state.rtReady)
 export const useCurrentRound = () =>
   useSessionSelector(state => state.currentSession?.current_round ?? FIRST_ROUND)
+export const useQuizPhase = () =>
+  useSessionSelector(state => state.currentSession?.quiz_phase ?? 'idle')
+export const useActiveQuestionId = () =>
+  useSessionSelector(state => state.currentSession?.active_question_id ?? null)

@@ -4,6 +4,14 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import RoundControl from './RoundControl'
 import { FINAL_ROUND, normalizeRound } from '@/lib/constants'
+import { normalizeQuizPhase } from '@/lib/quiz'
+
+const quizPhaseLabel = {
+  idle: null,
+  question_open: 'Quiz question live',
+  question_revealed: 'Quiz answer shown',
+  finished: 'Quiz finished'
+} as const
 
 interface Session {
   id: string
@@ -13,6 +21,7 @@ interface Session {
   participant_count: number
   total_amount: number
   current_round: number
+  quiz_phase?: string
 }
 
 interface Participant {
@@ -124,6 +133,7 @@ export default function ModernAdminLayout({
           {sessions.map((session) => {
             const expanded = expandedSessions.has(session.id)
             const round = normalizeRound(session.current_round)
+            const quizLabel = quizPhaseLabel[normalizeQuizPhase(session.quiz_phase)]
             return (
               <div key={session.id} className="card p-5 flex flex-col gap-5">
                 {/* Header */}
@@ -137,6 +147,12 @@ export default function ModernAdminLayout({
                       <span className="pill pill-accent">
                         Round {round} of {FINAL_ROUND}
                       </span>
+                      {quizLabel && (
+                        <span className="pill pill-live">
+                          <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
+                          {quizLabel}
+                        </span>
+                      )}
                       <span className="text-sm text-ink-3">
                         {new Date(session.created_at).toLocaleDateString()}
                       </span>
@@ -188,6 +204,12 @@ export default function ModernAdminLayout({
                       className="btn"
                     >
                       Open session
+                    </button>
+                    <button
+                      onClick={() => router.push(`/admin/quiz/${session.code}`)}
+                      className="btn"
+                    >
+                      Run the quiz
                     </button>
                     <button
                       onClick={() => {
