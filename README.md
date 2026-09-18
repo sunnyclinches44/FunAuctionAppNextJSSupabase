@@ -108,7 +108,7 @@ bids         → Individual bid records with timestamps
 ## 🚀 **Getting Started**
 
 ### **1. Prerequisites**
-- Node.js 18+ and npm/yarn
+- Node.js 22 (pinned via `.nvmrc` and `package.json` engines) and npm
 - Supabase account and project
 - Git for version control
 
@@ -163,6 +163,75 @@ Then, still in the dashboard:
 - **Authentication → URL Configuration**: add your site URL, and
   `http://localhost:3000` for local testing, to the redirect allow list.
 
+---
+
+## 🚀 **Deploy to Vercel**
+
+The project runs on Node 22 (pinned in `package.json` `engines` and `.nvmrc`)
+and needs no `vercel.json` — Next.js is auto-detected, and the default build
+command, output directory and install command are all correct.
+
+### **1. Import the repository**
+
+Vercel → Add New → Project → import this repo. Production deploys from `main`.
+
+### **2. Environment variables**
+
+Add both, ticked for **Production, Preview and Development**:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon public key>
+```
+
+Use the **anon public** key from Settings → API. Never `service_role` — the
+`NEXT_PUBLIC_` prefix inlines the value into the client bundle, and
+`service_role` bypasses every RLS policy.
+
+These are read at build time, not just at runtime. If one is missing the build
+fails while prerendering `/`, `/admin`, `/create` and `/join` with:
+
+```
+Error: supabaseUrl is required.
+```
+
+That reads like a code fault but it is not one — it means the variable is
+absent from the scope being built. Ticking only Preview and Development is the
+usual cause of a failing Production build.
+
+### **3. Supabase redirect allow list**
+
+**This is the step that silently breaks admin sign-in.** The magic link is
+requested with `emailRedirectTo: window.location.origin + '/admin'`, so the
+origin is whatever domain the browser happens to be on. A domain that is not on
+the allow list makes the link bounce, and the organiser cannot reach `/admin`.
+
+In Supabase → Authentication → URL Configuration:
+
+| Field | Value |
+|---|---|
+| Site URL | `https://<your-app>.vercel.app` |
+| Redirect URLs | `https://<your-app>.vercel.app/**` |
+| Redirect URLs | `http://localhost:3000/**` |
+
+You cannot fill this in until the first deploy has assigned a domain, so
+deploy first, then come back.
+
+**Preview deployments need care.** Every branch push gets its own URL like
+`fun-auction-git-somebranch-yourname.vercel.app`, which will not match the
+entries above. Either add a wildcard such as
+`https://*-<your-scope>.vercel.app/**`, or simply do all sign-in on the
+production domain.
+
+Finally, confirm Authentication → Providers → **Email** is enabled.
+
+### **4. Before handing out the link**
+
+Sign in at `/admin` and create a throwaway session ahead of time. The magic-link
+email round trip is the slowest step in the whole flow, and it is not something
+to discover in front of a room. Check that opening a round from `/admin`
+unlocks the higher buttons on a second device without a refresh, then delete
+the test session.
 ### **5. Development**
 ```bash
 # Start development server
