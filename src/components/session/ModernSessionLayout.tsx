@@ -6,6 +6,8 @@ import ParticipantsList from './ParticipantsList'
 import Leaderboard from './Leaderboard'
 import RoundRail from './RoundRail'
 import BidsHistory from '@/components/auction/BidsHistory'
+import QuizCard from '@/components/quiz/QuizCard'
+import type { QuizPhase, QuizState } from '@/lib/quiz'
 
 interface ModernSessionLayoutProps {
   session: any
@@ -32,6 +34,9 @@ interface ModernSessionLayoutProps {
   onCustomAmountCancel: () => void
   totalAmount: number
   sessionCode: string
+  quizState: QuizState
+  quizPhase: QuizPhase
+  onOpenQuiz: () => void
 }
 
 export default function ModernSessionLayout({
@@ -58,7 +63,10 @@ export default function ModernSessionLayout({
   onCustomAmountSubmit,
   onCustomAmountCancel,
   totalAmount,
-  sessionCode
+  sessionCode,
+  quizState,
+  quizPhase,
+  onOpenQuiz
 }: ModernSessionLayoutProps) {
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'history'>('leaderboard')
 
@@ -150,6 +158,8 @@ export default function ModernSessionLayout({
         <div className="lg:col-span-5 flex flex-col gap-6">
           <div className="lg:sticky lg:top-24 flex flex-col gap-6">
             {grandTotal}
+
+            <QuizCard state={quizState} phase={quizPhase} onOpen={onOpenQuiz} />
 
             <div className="card p-5 flex flex-col gap-4">
               <div className="flex gap-1 border-b border-hairline -mx-5 px-5 pb-0">

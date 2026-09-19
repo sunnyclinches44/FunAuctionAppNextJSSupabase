@@ -32,6 +32,12 @@ This directory contains all React components organized by feature and purpose.
 - `Particles.tsx` - Background particles effect
 - `index.ts` - Exports all marketing components
 
+### 📁 `quiz/` - Live Quiz (participant side)
+- `QuizModal.tsx` - The pop-up over the auction: question, own answer, reveal, final score
+- `QuizCard.tsx` - Sidebar status card; reopens a dismissed pop-up
+- `QuizOption.tsx` - One of the four options, shared with the admin views
+- `index.ts` - Exports all quiz components
+
 ### 📁 `session/` - Session Management Components
 - `ModernSessionLayout.tsx` - Session layout wrapper
 - `ParticipantsList.tsx` - Session participants list
@@ -41,6 +47,11 @@ This directory contains all React components organized by feature and purpose.
 
 ### 📁 `admin/` - Admin Panel Components
 - `ModernAdminLayout.tsx` - Admin layout wrapper
+- `RoundControl.tsx` - Open the next bidding round
+- `QuizRunner.tsx` - Live quiz control strip: release, reveal, finish, reset
+- `QuizQuestionList.tsx` - The run sheet: every question with release/reveal/edit and who answered what
+- `QuizQuestionForm.tsx` - Write or edit a question: prompt, four options, tick the correct one
+- `QuizLeaderboard.tsx` - Everyone's score, organiser only
 
 ### 📁 `ui/` - Reusable UI Components
 - `LoadingSpinner.tsx` - Loading spinner

@@ -15,6 +15,7 @@ interface Session {
   participant_count: number
   total_amount: number
   current_round: number
+  quiz_phase?: string
 }
 
 interface Participant {
@@ -124,7 +125,7 @@ export default function AdminPage() {
       // Get all active sessions
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('sessions')
-        .select('id, code, title, created_at, is_active, current_round')
+        .select('id, code, title, created_at, is_active, current_round, quiz_phase')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
 

@@ -4,9 +4,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { getOrCreateDeviceId, getDisplayName, saveDisplayName } from '@/lib/utils'
 import { AUCTION_CONFIG } from '@/lib/constants'
-import { useSessionStore, useCurrentSession, useParticipants, useTotalAmount, useIsLoading, useError, useRtReady, useCurrentRound } from '@/store/useSessionStore'
+import { useSessionStore, useCurrentSession, useParticipants, useTotalAmount, useIsLoading, useError, useRtReady, useCurrentRound, useQuizPhase, useActiveQuestionId } from '@/store/useSessionStore'
 import { useRealTime } from '@/hooks/useRealTime'
 import { useBidding } from '@/hooks/useBidding'
+import { useQuiz } from '@/hooks/useQuiz'
+import QuizModal from '@/components/quiz/QuizModal'
 import ModernSessionLayout from '@/components/session/ModernSessionLayout'
 import { validateMobileNumber } from '@/components/session/ParticipantJoin'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -31,6 +33,8 @@ export default function SessionRoom() {
   const rtReady = useRtReady()
   const totalAmount = useTotalAmount()
   const currentRound = useCurrentRound()
+  const quizPhase = useQuizPhase()
+  const activeQuestionId = useActiveQuestionId()
 
   // Bidding hook - only initialize when we have both code and deviceId
   const { 
@@ -46,6 +50,19 @@ export default function SessionRoom() {
 
   // Real-time updates
   useRealTime(session?.id || null)
+
+  // Check if current user has joined
+  const myRow = participants.find((p) => p.device_id === myDeviceId)
+  const hasJoined = !!myRow
+
+  // The live quiz. Its pointer arrives over the same sessions subscription.
+  const quiz = useQuiz({
+    sessionCode: code && session ? code : '',
+    deviceId: myDeviceId,
+    phase: quizPhase,
+    activeQuestionId,
+    hasJoined
+  })
 
   // Initialize device ID and display name
   useEffect(() => {
@@ -143,10 +160,6 @@ export default function SessionRoom() {
     return success
   }
 
-  // Check if current user has joined
-  const myRow = participants.find((p) => p.device_id === myDeviceId)
-  const hasJoined = !!myRow
-
   // Removed highest bidder detection and achievement toasts
 
   if (isLoading) {
@@ -207,8 +220,23 @@ export default function SessionRoom() {
           onCustomAmountCancel={() => setCustomInput(null)}
           totalAmount={totalAmount}
           sessionCode={code}
+          quizState={quiz.state}
+          quizPhase={quiz.phase}
+          onOpenQuiz={quiz.open}
         />
       </ErrorBoundary>
+      {quiz.isOpen && (
+        <QuizModal
+          state={quiz.state}
+          phase={quiz.phase}
+          synced={quiz.synced}
+          hasJoined={hasJoined}
+          isSubmitting={quiz.isSubmitting}
+          error={quiz.error}
+          onAnswer={quiz.submitAnswer}
+          onDismiss={quiz.dismiss}
+        />
+      )}
       <ModernFooter />
     </main>
   )
