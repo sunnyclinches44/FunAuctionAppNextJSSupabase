@@ -1,6 +1,6 @@
 'use client'
 
-import { formatSeconds, scoreLine, type AdminQuizResults } from '@/lib/quiz'
+import { FASTEST_SHOWN, formatSeconds, scoreLine, type AdminQuizResults } from '@/lib/quiz'
 
 interface QuizRunnerProps {
   results: AdminQuizResults
@@ -81,19 +81,18 @@ export default function QuizRunner({
       {phase === 'question_revealed' && active && (
         <div className="flex flex-col gap-1.5 pt-3 border-t border-hairline">
           <span className="label">Fastest finger</span>
-          {active.answers.filter(a => a.is_correct).length === 0 ? (
-            <p className="text-sm text-ink-3 m-0">Nobody had it.</p>
-          ) : (
-            <ol className="flex flex-col list-none p-0 m-0">
-              {active.answers.filter(a => a.is_correct).slice(0, 3).map((a, i) => (
-                <li key={a.participant_id} className="grid grid-cols-[1.5rem_1fr_auto] items-center gap-3 py-1.5">
-                  <span className={`num text-sm ${i === 0 ? 'text-accent' : 'text-ink-3'}`}>{i + 1}</span>
-                  <span className={`text-[0.9rem] truncate ${i === 0 ? 'text-ink font-medium' : 'text-ink'}`}>{a.display_name}</span>
-                  <span className={`num text-sm ${i === 0 ? 'text-accent' : 'text-ink-3'}`}>{formatSeconds(a.seconds)}</span>
-                </li>
-              ))}
-            </ol>
-          )}
+          {/* The winner, the same one name the room's phones are looking at. */}
+          {(() => {
+            const correct = active.answers.filter(a => a.is_correct)
+            const winner = correct.slice(0, FASTEST_SHOWN)[0]
+            if (!winner) return <p className="text-sm text-ink-3 m-0">Nobody had it.</p>
+            return (
+              <div className="flex items-center justify-between gap-3 py-1.5">
+                <span className="display text-base truncate">{winner.display_name}</span>
+                <span className="num text-sm text-accent shrink-0">{formatSeconds(winner.seconds)}</span>
+              </div>
+            )
+          })()}
         </div>
       )}
 

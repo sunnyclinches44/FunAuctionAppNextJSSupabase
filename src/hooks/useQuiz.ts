@@ -10,6 +10,17 @@ import {
 /** While a question is open, refresh the "N answered" count this often. */
 const OPEN_POLL_MS = 5000
 
+/**
+ * How often to look for a question the realtime socket never told us about.
+ *
+ * The pointer normally arrives as an UPDATE on the sessions row. A phone
+ * that locked its screen, changed cell, or slept through the socket's death
+ * never hears it, and used to sit on the auction until someone reloaded the
+ * page. This poll is the floor under that: the worst case for seeing a new
+ * question becomes this interval rather than a manual refresh.
+ */
+const IDLE_POLL_MS = 8000
+
 interface UseQuizArgs {
   sessionCode: string
   deviceId: string
@@ -27,6 +38,11 @@ interface UseQuizArgs {
  * state from get_quiz_state(), which is the only thing the phone ever learns.
  * The pop-up shows itself whenever the pointer moves to something worth
  * showing, and a dismissal only sticks until the pointer moves again.
+ *
+ * Realtime is treated as an accelerator, not as the truth. A poll and a
+ * refetch on waking the tab cover the phone that missed the socket message,
+ * and what the pop-up follows is the state the database just handed back,
+ * so a question still arrives without anyone reloading the page.
  */
 export function useQuiz({ sessionCode, deviceId, phase, activeQuestionId, hasJoined }: UseQuizArgs) {
   const [state, setState] = useState<QuizState>(EMPTY_QUIZ_STATE)
@@ -86,14 +102,39 @@ export function useQuiz({ sessionCode, deviceId, phase, activeQuestionId, hasJoi
     refresh()
   }, [refresh, pointerKey, hasJoined])
 
-  // Keep the answered count moving while a question is open. Phones get no
-  // realtime on answers (by design: nothing about other people reaches them),
-  // so a light poll does it.
+  // Keep the answered count moving while a question is open, and keep
+  // looking for a question the socket never delivered when nothing is live.
+  // Phones get no realtime on answers (by design: nothing about other people
+  // reaches them), so a light poll does both jobs.
   useEffect(() => {
-    if (phase !== 'question_open') return
-    const id = setInterval(refresh, OPEN_POLL_MS)
+    if (!ready) return
+    const everyMs = state.phase === 'question_open' ? OPEN_POLL_MS : IDLE_POLL_MS
+    const tick = () => {
+      // A backgrounded tab is not looking at anything. It catches up below.
+      if (typeof document !== 'undefined' && document.hidden) return
+      refresh()
+    }
+    const id = setInterval(tick, everyMs)
     return () => clearInterval(id)
-  }, [phase, refresh])
+  }, [ready, state.phase, refresh])
+
+  // Coming back to the page is the other moment the socket may have been
+  // asleep for: a locked phone picked up mid-question lands here.
+  useEffect(() => {
+    if (!ready) return
+    const wake = () => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      refresh()
+    }
+    document.addEventListener('visibilitychange', wake)
+    window.addEventListener('focus', wake)
+    window.addEventListener('online', wake)
+    return () => {
+      document.removeEventListener('visibilitychange', wake)
+      window.removeEventListener('focus', wake)
+      window.removeEventListener('online', wake)
+    }
+  }, [ready, refresh])
 
   const submitAnswer = useCallback(async (choice: number): Promise<boolean> => {
     const question = state.question
@@ -137,9 +178,14 @@ export function useQuiz({ sessionCode, deviceId, phase, activeQuestionId, hasJoi
   const synced = fetchedKey === pointerKey
   const effectivePhase: QuizPhase = synced ? state.phase : phase
   const showable = effectivePhase !== 'idle'
-  const isOpen = showable && dismissedKey !== pointerKey
+  // What the pop-up is currently about, taken from the fetched state rather
+  // than the realtime pointer. When the socket is quiet the pointer never
+  // moves, and keying the dismissal to it would keep the pop-up shut for
+  // every question after the first one someone closed.
+  const liveKey = synced ? `${state.phase}:${state.question?.id ?? ''}` : pointerKey
+  const isOpen = showable && dismissedKey !== liveKey
 
-  const dismiss = useCallback(() => setDismissedKey(pointerKey), [pointerKey])
+  const dismiss = useCallback(() => setDismissedKey(liveKey), [liveKey])
   const open = useCallback(() => setDismissedKey(null), [])
 
   return {

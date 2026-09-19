@@ -15,8 +15,15 @@ export const QUIZ_OPTION_LABELS = ['A', 'B', 'C', 'D'] as const
 
 export const QUIZ_OPTION_COUNT = QUIZ_OPTION_LABELS.length
 
-/** How many fastest correct answers the reveal names. Matches LIMIT 3 in SQL. */
-export const FASTEST_SHOWN = 3
+/**
+ * How many fastest correct answers the reveal names. Matches LIMIT 1 in SQL.
+ *
+ * One, on purpose: the reveal names the winner and nobody else. A longer
+ * list put other people's results on every phone and, in a room of fifty,
+ * needed its own scrollbar. The UI slices to this as well, so a database
+ * still running the older function shows the winner all the same.
+ */
+export const FASTEST_SHOWN = 1
 
 export function normalizeQuizPhase(phase: unknown): QuizPhase {
   switch (phase) {

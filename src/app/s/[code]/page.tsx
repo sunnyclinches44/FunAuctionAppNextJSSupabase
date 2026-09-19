@@ -9,6 +9,7 @@ import { useRealTime } from '@/hooks/useRealTime'
 import { useBidding } from '@/hooks/useBidding'
 import { useQuiz } from '@/hooks/useQuiz'
 import QuizModal from '@/components/quiz/QuizModal'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import ModernSessionLayout from '@/components/session/ModernSessionLayout'
 import { validateMobileNumber } from '@/components/session/ParticipantJoin'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -22,6 +23,10 @@ export default function SessionRoom() {
   const [myName, setMyName] = useState<string>('')
   const [myMobileNumber, setMyMobileNumber] = useState<string>('')
   const [isSavingName, setIsSavingName] = useState(false)
+  // The undo flow, asked and answered in one dialog drawn by the app.
+  const [undoFor, setUndoFor] = useState<string | null>(null)
+  const [isUndoing, setIsUndoing] = useState(false)
+  const [undoError, setUndoError] = useState<string | null>(null)
 
 
   // Enhanced store hooks
@@ -142,22 +147,30 @@ export default function SessionRoom() {
     // No need to reload session - real-time updates will handle the UI updates
   }
 
-  // Handle undo bid
+  // Handle undo bid. The button only asks; the dialog does the undoing, so
+  // the person sees exactly one pop-up either way.
   const handleUndoBid = async (participantId: string) => {
-    if (!hasJoined) {
-      alert('Please join the session first before undoing bids.')
-      return false
+    if (!hasJoined) return false
+    setUndoError(null)
+    setUndoFor(participantId)
+    return false
+  }
+
+  const confirmUndo = async () => {
+    if (!undoFor) return
+    setIsUndoing(true)
+    setUndoError(null)
+    try {
+      const success = await undoBid(undoFor)
+      if (success) {
+        // The totals come back over realtime; nothing more to say.
+        setUndoFor(null)
+      } else {
+        setUndoError('That did not go through. Try once more.')
+      }
+    } finally {
+      setIsUndoing(false)
     }
-    
-    if (!confirm('Are you sure you want to undo your last bid? This action cannot be reversed.')) {
-      return false
-    }
-    
-    const success = await undoBid(participantId)
-    if (success) {
-      alert('Bid successfully undone!')
-    }
-    return success
   }
 
   // Removed highest bidder detection and achievement toasts
@@ -225,6 +238,21 @@ export default function SessionRoom() {
           onOpenQuiz={quiz.open}
         />
       </ErrorBoundary>
+      {undoFor && (
+        <ConfirmDialog
+          title="Undo your last bid?"
+          body="Your most recent pledge comes off your total. This cannot be reversed."
+          confirmLabel="Undo it"
+          cancelLabel="Keep it"
+          error={undoError}
+          isBusy={isUndoing}
+          onConfirm={confirmUndo}
+          onCancel={() => {
+            setUndoFor(null)
+            setUndoError(null)
+          }}
+        />
+      )}
       {quiz.isOpen && (
         <QuizModal
           state={quiz.state}

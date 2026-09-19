@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import QuizOption, { type OptionTone } from './QuizOption'
 import {
+  FASTEST_SHOWN,
   formatSeconds,
   scoreLine,
   QUIZ_OPTION_LABELS,
@@ -28,7 +29,7 @@ interface QuizModalProps {
  * mounted underneath, so nothing about bidding is lost.
  *
  * What this shows is deliberately narrow: the question, this person's own
- * pick, the answer once revealed, the fastest correct names, and this
+ * pick, the answer once revealed, the one fastest correct name, and this
  * person's own score. Never anyone else's answers or score.
  */
 export default function QuizModal({
@@ -158,6 +159,9 @@ export default function QuizModal({
     }
 
     const canAnswer = !revealed && hasJoined && mine == null && !isSubmitting
+    // The winner alone. Everyone else's time is their own business, and a
+    // full list needed a scrollbar once the room grew past a handful.
+    const winner = question.fastest.slice(0, FASTEST_SHOWN)[0] ?? null
 
     body = (
       <div className="flex flex-col gap-5">
@@ -223,25 +227,13 @@ export default function QuizModal({
 
             <div className="flex flex-col gap-2">
               <span className="label">Fastest finger</span>
-              {question.fastest.length === 0 ? (
-                <p className="text-sm text-ink-3 m-0">Nobody had it this time.</p>
+              {winner ? (
+                <div className="flex items-center justify-between gap-3 py-2">
+                  <span className="display text-base truncate">{winner.display_name}</span>
+                  <span className="num text-sm text-accent shrink-0">{formatSeconds(winner.seconds)}</span>
+                </div>
               ) : (
-                <ol className="flex flex-col list-none p-0 m-0">
-                  {question.fastest.map((f, i) => (
-                    <li
-                      key={`${f.display_name}-${i}`}
-                      className="grid grid-cols-[1.5rem_1fr_auto] items-center gap-3 py-2 border-b border-hairline last:border-b-0"
-                    >
-                      <span className={`num text-sm ${i === 0 ? 'text-accent' : 'text-ink-3'}`}>{i + 1}</span>
-                      <span className={`text-[0.9rem] truncate ${i === 0 ? 'text-ink font-medium' : 'text-ink'}`}>
-                        {f.display_name}
-                      </span>
-                      <span className={`num text-sm ${i === 0 ? 'text-accent' : 'text-ink-3'}`}>
-                        {formatSeconds(f.seconds)}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
+                <p className="text-sm text-ink-3 m-0">Nobody had it this time.</p>
               )}
             </div>
 

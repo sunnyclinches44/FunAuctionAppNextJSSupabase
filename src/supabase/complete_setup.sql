@@ -846,7 +846,9 @@ BEGIN
         JOIN participants p ON p.id = a.participant_id
         WHERE a.question_id = v_q.id AND a.is_correct
         ORDER BY a.answered_at
-        LIMIT 3
+        -- Only the winner. With a room of fifty, a list of names is a wall
+        -- of other people's business and a scrollbar; one name is the story.
+        LIMIT 1
       ) f;
     END IF;
 
