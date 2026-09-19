@@ -10,7 +10,7 @@
 --   * During the auction the organiser releases a question. Every joined
 --     phone gets a pop-up over the auction, answers, and waits.
 --   * The organiser reveals the answer. Everyone sees the right option,
---     whether their own pick was right, and the fastest correct answers.
+--     whether their own pick was right, and who answered fastest.
 --   * After the last question the organiser finishes the quiz. Each person
 --     sees their own score only. The organiser sees everyone's.
 --
@@ -19,7 +19,7 @@
 --     quiz_answers. They only see what get_quiz_state() hands back, and it
 --     never includes the correct option until the question is revealed.
 --   * A participant only ever receives their own answers. Other people's
---     picks are aggregated (counts) or limited to the fastest correct names.
+--     picks are aggregated (counts) or limited to the one fastest name.
 --   * The organiser (signed in) reads and writes the tables directly.
 --
 -- Realtime rides on the sessions table, which phones already listen to:
@@ -180,7 +180,7 @@ $$;
 -- ============ STEP 5: PARTICIPANT RPCs ============
 
 -- Everything a phone needs to draw the quiz pop-up, and nothing it must not
--- have. The correct option and the fastest names appear only once the
+-- have. The correct option and the fastest name appear only once the
 -- question is revealed. Other people's picks never appear at all.
 DROP FUNCTION IF EXISTS public.get_quiz_state(text, text);
 
@@ -273,7 +273,9 @@ BEGIN
         JOIN participants p ON p.id = a.participant_id
         WHERE a.question_id = v_q.id AND a.is_correct
         ORDER BY a.answered_at
-        LIMIT 3
+        -- Only the winner. With a room of fifty, a list of names is a wall
+        -- of other people's business and a scrollbar; one name is the story.
+        LIMIT 1
       ) f;
     END IF;
 

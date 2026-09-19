@@ -144,12 +144,12 @@ export function useBidding(sessionCode: string, deviceId: string) {
         console.log('Bid successfully undone in database')
       } else {
         console.error('Failed to undo bid in database')
-        alert('Failed to undo bid. Please try again.')
       }
+      // Whether it worked is reported in the dialog that asked for it, so
+      // there is one pop-up in this flow rather than a second one here.
       return success
     } catch (error) {
       console.error('Error undoing bid:', error)
-      alert('Failed to undo bid. Please try again.')
       return false
     }
   }, [sessionCode, deviceId, undoBidAsync])
